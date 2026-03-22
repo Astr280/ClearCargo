@@ -1,0 +1,19 @@
+<svg width="720" height="180" viewBox="0 0 720 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="cargoGradient" x1="25" y1="30" x2="185" y2="165" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5DC4DE"/>
+      <stop offset="1" stop-color="#1147A6"/>
+    </linearGradient>
+  </defs>
+  <rect width="720" height="180" rx="36" fill="white"/>
+  <g transform="translate(22 16)">
+    <path d="M125.242 8C154.284 20.5223 175 48.9866 175 82.5C175 116.013 154.284 144.478 125.242 157L118.922 139.163C141.009 128.776 156.5 106.342 156.5 82.5C156.5 58.6585 141.009 36.224 118.922 25.8371L125.242 8Z" fill="url(#cargoGradient)"/>
+    <path d="M35 36L118 74H35C34.3871 68.0306 34.3871 42.5038 35 36Z" fill="url(#cargoGradient)"/>
+    <path d="M45 98L120 82L48 123C45.6918 117.236 44.7009 103.651 45 98Z" fill="url(#cargoGradient)"/>
+    <path d="M54 18L118 62L79 15C70.6493 15.802 61.7108 16.4803 54 18Z" fill="url(#cargoGradient)"/>
+    <path d="M48 136L118 95L76 146C67.6959 143.78 58.3661 140.194 48 136Z" fill="url(#cargoGradient)"/>
+    <path d="M27 62L113 81L32 20C29.8222 26.8178 28.1312 43.0399 27 62Z" fill="url(#cargoGradient)"/>
+    <path d="M28 112L116 86L34 157C30.9476 150.445 29.0252 132.547 28 112Z" fill="url(#cargoGradient)"/>
+  </g>
+  <text x="226" y="116" fill="#1A3165" font-size="88" font-family="Aptos, Bahnschrift, Trebuchet MS, Arial, sans-serif" font-weight="700" letter-spacing="-3">CargoClear</text>
+</svg>

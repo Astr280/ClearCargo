@@ -1,9 +1,17 @@
 {
-  "name": "cargoclear-prototype",
-  "version": "1.0.0",
+  "name": "cargoclear",
   "private": true,
-  "description": "CargoClear branded frontend prototype generated from the developer specification.",
+  "version": "1.0.0",
+  "description": "CargoClear freight forwarding platform starter",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "start": "node server.js"
+    "dev:web": "npm run dev --workspace @cargoclear/web",
+    "dev:api": "npm run dev --workspace @cargoclear/api",
+    "build:web": "npm run build --workspace @cargoclear/web",
+    "build:api": "npm run build --workspace @cargoclear/api",
+    "build": "npm run build:web && npm run build:api"
   }
 }

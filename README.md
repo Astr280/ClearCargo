@@ -1,36 +1,58 @@
 # CargoClear
 
-CargoClear is a CargoWise-class freight forwarding platform concept translated into a working frontend starter plus delivery artifacts.
+CargoClear is now structured as a real application starter instead of a single static prototype.
 
-## What is in this repo
+## Workspace layout
 
-- A branded product prototype covering operations, customs, finance, warehouse, CRM, analytics, and platform architecture.
-- Local preview server with no external dependencies.
-- Architecture and implementation docs derived from the developer specification.
-- A sample PostgreSQL schema to ground future backend work.
+- `apps/web`: React + TypeScript frontend
+- `apps/api`: Node + TypeScript API
+- `packages/shared`: shared freight-domain models and seeded mock platform data
+- `assets`: CargoClear brand assets
+- `data/schema.sql`: starter relational schema
+- `docs`: planning and architecture notes
+
+## Product scope represented
+
+- Shipment management
+- Customs and compliance
+- Finance and billing
+- Warehouse management
+- CRM and quotation
+- Customer portal
+- Reporting and analytics
+- Platform architecture and multi-tenancy
 
 ## Run locally
 
+Install dependencies from the repo root:
+
 ```bash
-npm start
+npm install
 ```
 
-Then open `http://localhost:4173`.
+Start the API:
 
-## Repo structure
+```bash
+npm run dev:api
+```
 
-- `index.html`: app shell and product sections
-- `styles.css`: visual system and responsive layout
-- `app.js`: data-driven UI rendering and interactions
-- `server.js`: lightweight local preview server
-- `assets/`: CargoClear logo assets
-- `docs/`: architecture and planning notes
-- `data/schema.sql`: starter relational schema
+Start the web app in another terminal:
 
-## Suggested next build steps
+```bash
+npm run dev:web
+```
 
-1. Migrate the frontend into React + TypeScript as recommended in the spec.
-2. Stand up a NestJS or FastAPI backend with PostgreSQL and Redis.
-3. Implement auth, tenancy, and shipment CRUD first.
-4. Add document generation and customer portal flows.
-5. Layer customs filing workflows, finance, WMS, and integrations phase by phase.
+## What is implemented right now
+
+- A real routed React frontend shell for the main platform modules
+- A TypeScript API with module-oriented endpoints
+- Shared domain models and seeded mock operational data
+- Starter PostgreSQL schema for future backend persistence
+
+## What is still not fully built
+
+- Database persistence
+- Real authentication
+- Real customs / carrier / payment integrations
+- OCR, PDF rendering, and queue workers
+- Full CRUD flows and production-grade validation
