@@ -1,0 +1,57 @@
+[
+  {
+    "id": "1",
+    "jobNumber": "CC-24018",
+    "mode": "Ocean",
+    "stage": "Booking",
+    "customer": "Northwind Imports",
+    "origin": "Shenzhen",
+    "destination": "Long Beach",
+    "incoterm": "FOB",
+    "owner": "A. Mehta",
+    "weightKg": 18400,
+    "containerRef": "MSKU-884120",
+    "marginPercent": 18.2
+  },
+  {
+    "id": "2",
+    "jobNumber": "CC-24022",
+    "mode": "Air",
+    "stage": "Confirmed",
+    "customer": "BluePeak Pharma",
+    "origin": "Frankfurt",
+    "destination": "Chicago",
+    "incoterm": "DAP",
+    "owner": "J. Patel",
+    "weightKg": 1260,
+    "marginPercent": 10.8
+  },
+  {
+    "id": "3",
+    "jobNumber": "CC-23967",
+    "mode": "Ocean",
+    "stage": "In Transit",
+    "customer": "Northwind Imports",
+    "origin": "Singapore",
+    "destination": "Los Angeles",
+    "incoterm": "CIF",
+    "owner": "N. Thomas",
+    "weightKg": 22300,
+    "containerRef": "OOLU-101882",
+    "marginPercent": 16.1
+  },
+  {
+    "id": "4",
+    "jobNumber": "CC-23951",
+    "mode": "Ocean",
+    "stage": "Customs",
+    "customer": "Frontier Auto Parts",
+    "origin": "Busan",
+    "destination": "Houston",
+    "incoterm": "DDP",
+    "owner": "D. Shah",
+    "weightKg": 19120,
+    "containerRef": "HLCU-229120",
+    "marginPercent": 8.1
+  }
+]

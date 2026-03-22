@@ -1,7 +1,6 @@
 import {
   Alert,
   Button,
-  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -10,6 +9,7 @@ import {
   Grid,
   InputLabel,
   MenuItem,
+  IconButton,
   Select,
   Snackbar,
   Stack,
@@ -21,10 +21,13 @@ import {
   TextField,
   Typography
 } from "@mui/material";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import RefreshOutlinedIcon from "@mui/icons-material/RefreshOutlined";
 import { useEffect, useState } from "react";
 import PageHeader from "../components/PageHeader";
 import SectionCard from "../components/SectionCard";
-import type { CreateShipmentInput, Shipment, ShipmentStage } from "@shared/index";
+import type { CreateShipmentInput, Shipment, ShipmentStage, UpdateShipmentInput } from "@shared/index";
 import { shipments } from "@shared/index";
 import { fetchJson, requestJson } from "../lib/api";
 
@@ -46,6 +49,7 @@ export default function ShipmentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<CreateShipmentInput>(initialForm);
+  const [editingShipment, setEditingShipment] = useState<Shipment | null>(null);
   const [saving, setSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
@@ -84,6 +88,38 @@ export default function ShipmentsPage() {
     }
   }
 
+  async function handleUpdateShipment() {
+    if (!editingShipment) {
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const payload: UpdateShipmentInput = {
+        ...form,
+        stage: editingShipment.stage,
+        containerRef: editingShipment.containerRef
+      };
+
+      const updated = await requestJson<Shipment>(`/shipments/${editingShipment.id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload)
+      });
+
+      setData((current) => current.map((shipment) => (shipment.id === updated.id ? updated : shipment)));
+      setDialogOpen(false);
+      setEditingShipment(null);
+      setForm(initialForm);
+      setToastMessage(`Saved ${updated.jobNumber}`);
+      setError(null);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleStageChange(id: string, stage: ShipmentStage) {
     try {
       const updated = await requestJson<Shipment>(`/shipments/${id}/stage`, {
@@ -99,13 +135,55 @@ export default function ShipmentsPage() {
     }
   }
 
+  async function handleDeleteShipment(id: string) {
+    try {
+      const deleted = await requestJson<Shipment>(`/shipments/${id}`, {
+        method: "DELETE"
+      });
+
+      setData((current) => current.filter((shipment) => shipment.id !== deleted.id));
+      setToastMessage(`Deleted ${deleted.jobNumber}`);
+      setError(null);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  function openCreateDialog() {
+    setEditingShipment(null);
+    setForm(initialForm);
+    setDialogOpen(true);
+  }
+
+  function openEditDialog(shipment: Shipment) {
+    setEditingShipment(shipment);
+    setForm({
+      customer: shipment.customer,
+      mode: shipment.mode,
+      origin: shipment.origin,
+      destination: shipment.destination,
+      incoterm: shipment.incoterm,
+      owner: shipment.owner,
+      weightKg: shipment.weightKg,
+      marginPercent: shipment.marginPercent
+    });
+    setDialogOpen(true);
+  }
+
   return (
     <>
       <PageHeader
         eyebrow="Shipment management"
         title="Operational shipment workspace"
         description="Unique jobs, multimodal handling, address-book relationships, incoterms, milestones, split shipments, cloned jobs, and document linkage all belong here."
-        actions={<Button variant="contained" onClick={() => setDialogOpen(true)}>New job</Button>}
+        actions={
+          <Stack direction="row" spacing={1}>
+            <Button startIcon={<RefreshOutlinedIcon />} onClick={() => void loadShipments()}>
+              Refresh
+            </Button>
+            <Button variant="contained" onClick={openCreateDialog}>New job</Button>
+          </Stack>
+        }
         status="MVP scope"
       />
 
@@ -123,6 +201,7 @@ export default function ShipmentsPage() {
                   <TableCell>Incoterm</TableCell>
                   <TableCell>Owner</TableCell>
                   <TableCell>Margin</TableCell>
+                  <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -150,11 +229,19 @@ export default function ShipmentsPage() {
                         </Select>
                       </FormControl>
                     </TableCell>
-                    <TableCell>{shipment.incoterm}</TableCell>
-                    <TableCell>{shipment.owner}</TableCell>
-                    <TableCell>{shipment.marginPercent}%</TableCell>
-                  </TableRow>
-                ))}
+                  <TableCell>{shipment.incoterm}</TableCell>
+                  <TableCell>{shipment.owner}</TableCell>
+                  <TableCell>{shipment.marginPercent}%</TableCell>
+                  <TableCell align="right">
+                    <IconButton onClick={() => openEditDialog(shipment)}>
+                      <EditOutlinedIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton color="error" onClick={() => void handleDeleteShipment(shipment.id)}>
+                      <DeleteOutlineIcon fontSize="small" />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
               </TableBody>
             </Table>
           </SectionCard>
@@ -192,8 +279,16 @@ export default function ShipmentsPage() {
         </Grid>
       </Grid>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Create shipment</DialogTitle>
+      <Dialog
+        open={dialogOpen}
+        onClose={() => {
+          setDialogOpen(false);
+          setEditingShipment(null);
+        }}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>{editingShipment ? `Edit ${editingShipment.jobNumber}` : "Create shipment"}</DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField label="Customer" value={form.customer} onChange={(event) => setForm({ ...form, customer: event.target.value })} />
@@ -253,9 +348,20 @@ export default function ShipmentsPage() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={() => void handleCreateShipment()} disabled={saving}>
-            {saving ? "Creating..." : "Create shipment"}
+          <Button
+            onClick={() => {
+              setDialogOpen(false);
+              setEditingShipment(null);
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => void (editingShipment ? handleUpdateShipment() : handleCreateShipment())}
+            disabled={saving}
+          >
+            {saving ? "Saving..." : editingShipment ? "Save changes" : "Create shipment"}
           </Button>
         </DialogActions>
       </Dialog>

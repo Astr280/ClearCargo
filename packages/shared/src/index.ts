@@ -30,6 +30,11 @@ export interface UpdateShipmentStageInput {
   stage: ShipmentStage;
 }
 
+export interface UpdateShipmentInput extends CreateShipmentInput {
+  stage: ShipmentStage;
+  containerRef?: string;
+}
+
 export interface DashboardMetric {
   label: string;
   value: string;

@@ -1,16 +1,19 @@
 import { Router } from "express";
 import {
   createShipment,
+  deleteShipment,
   getComplianceQueue,
   getCustomers,
   getDashboardPayload,
   getFinanceSummary,
   getPlatformOverview,
+  getShipmentById,
   getShipments,
   getWarehouseTasks,
+  updateShipment,
   updateShipmentStage
 } from "../services/platform-data.js";
-import type { CreateShipmentInput, ShipmentStage } from "../../../../packages/shared/src/index.js";
+import type { CreateShipmentInput, ShipmentStage, UpdateShipmentInput } from "../../../../packages/shared/src/index.js";
 
 const router = Router();
 const shipmentStages: ShipmentStage[] = ["Booking", "Confirmed", "In Transit", "Customs", "Delivered", "Closed"];
@@ -25,6 +28,17 @@ router.get("/dashboard", (_request, response) => {
 
 router.get("/shipments", (_request, response) => {
   response.json(getShipments());
+});
+
+router.get("/shipments/:id", (request, response) => {
+  const shipment = getShipmentById(request.params.id);
+
+  if (!shipment) {
+    response.status(404).json({ message: "Shipment not found." });
+    return;
+  }
+
+  response.json(shipment);
 });
 
 router.post("/shipments", (request, response) => {
@@ -48,6 +62,34 @@ router.post("/shipments", (request, response) => {
   response.status(201).json(shipment);
 });
 
+router.put("/shipments/:id", (request, response) => {
+  const payload = request.body as Partial<UpdateShipmentInput>;
+
+  if (
+    !payload.customer ||
+    !payload.mode ||
+    !payload.origin ||
+    !payload.destination ||
+    !payload.incoterm ||
+    !payload.owner ||
+    !payload.stage ||
+    typeof payload.weightKg !== "number" ||
+    typeof payload.marginPercent !== "number"
+  ) {
+    response.status(400).json({ message: "Invalid shipment payload." });
+    return;
+  }
+
+  const shipment = updateShipment(request.params.id, payload as UpdateShipmentInput);
+
+  if (!shipment) {
+    response.status(404).json({ message: "Shipment not found." });
+    return;
+  }
+
+  response.json(shipment);
+});
+
 router.patch("/shipments/:id/stage", (request, response) => {
   const stage = request.body?.stage as ShipmentStage | undefined;
 
@@ -57,6 +99,17 @@ router.patch("/shipments/:id/stage", (request, response) => {
   }
 
   const shipment = updateShipmentStage(request.params.id, stage);
+
+  if (!shipment) {
+    response.status(404).json({ message: "Shipment not found." });
+    return;
+  }
+
+  response.json(shipment);
+});
+
+router.delete("/shipments/:id", (request, response) => {
+  const shipment = deleteShipment(request.params.id);
 
   if (!shipment) {
     response.status(404).json({ message: "Shipment not found." });
