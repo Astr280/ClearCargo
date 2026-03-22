@@ -15,6 +15,21 @@ export interface Shipment {
   marginPercent: number;
 }
 
+export interface CreateShipmentInput {
+  customer: string;
+  mode: Shipment["mode"];
+  origin: string;
+  destination: string;
+  incoterm: string;
+  owner: string;
+  weightKg: number;
+  marginPercent: number;
+}
+
+export interface UpdateShipmentStageInput {
+  stage: ShipmentStage;
+}
+
 export interface DashboardMetric {
   label: string;
   value: string;

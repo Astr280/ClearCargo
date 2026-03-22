@@ -1,11 +1,103 @@
-import { Alert, Button, Chip, Grid, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@mui/material";
+import {
+  Alert,
+  Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  Grid,
+  InputLabel,
+  MenuItem,
+  Select,
+  Snackbar,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography
+} from "@mui/material";
+import { useEffect, useState } from "react";
 import PageHeader from "../components/PageHeader";
 import SectionCard from "../components/SectionCard";
+import type { CreateShipmentInput, Shipment, ShipmentStage } from "@shared/index";
 import { shipments } from "@shared/index";
-import { useApiResource } from "../lib/useApiResource";
+import { fetchJson, requestJson } from "../lib/api";
+
+const shipmentStages: ShipmentStage[] = ["Booking", "Confirmed", "In Transit", "Customs", "Delivered", "Closed"];
+
+const initialForm: CreateShipmentInput = {
+  customer: "",
+  mode: "Ocean",
+  origin: "",
+  destination: "",
+  incoterm: "FOB",
+  owner: "",
+  weightKg: 0,
+  marginPercent: 15
+};
 
 export default function ShipmentsPage() {
-  const { data, error } = useApiResource("/shipments", shipments);
+  const [data, setData] = useState<Shipment[]>(shipments);
+  const [error, setError] = useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [form, setForm] = useState<CreateShipmentInput>(initialForm);
+  const [saving, setSaving] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+
+  async function loadShipments() {
+    try {
+      const result = await fetchJson<Shipment[]>("/shipments");
+      setData(result);
+      setError(null);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  useEffect(() => {
+    void loadShipments();
+  }, []);
+
+  async function handleCreateShipment() {
+    setSaving(true);
+
+    try {
+      const created = await requestJson<Shipment>("/shipments", {
+        method: "POST",
+        body: JSON.stringify(form)
+      });
+
+      setData((current) => [created, ...current]);
+      setDialogOpen(false);
+      setForm(initialForm);
+      setToastMessage(`Created shipment ${created.jobNumber}`);
+      setError(null);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleStageChange(id: string, stage: ShipmentStage) {
+    try {
+      const updated = await requestJson<Shipment>(`/shipments/${id}/stage`, {
+        method: "PATCH",
+        body: JSON.stringify({ stage })
+      });
+
+      setData((current) => current.map((shipment) => (shipment.id === id ? updated : shipment)));
+      setToastMessage(`Updated ${updated.jobNumber} to ${updated.stage}`);
+      setError(null);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
 
   return (
     <>
@@ -13,7 +105,7 @@ export default function ShipmentsPage() {
         eyebrow="Shipment management"
         title="Operational shipment workspace"
         description="Unique jobs, multimodal handling, address-book relationships, incoterms, milestones, split shipments, cloned jobs, and document linkage all belong here."
-        actions={<Button variant="contained">New job</Button>}
+        actions={<Button variant="contained" onClick={() => setDialogOpen(true)}>New job</Button>}
         status="MVP scope"
       />
 
@@ -45,7 +137,18 @@ export default function ShipmentsPage() {
                     <TableCell>{shipment.customer}</TableCell>
                     <TableCell>{shipment.mode}</TableCell>
                     <TableCell>
-                      <Chip size="small" label={shipment.stage} color="primary" variant="outlined" />
+                      <FormControl size="small" sx={{ minWidth: 150 }}>
+                        <Select
+                          value={shipment.stage}
+                          onChange={(event) => void handleStageChange(shipment.id, event.target.value as ShipmentStage)}
+                        >
+                          {shipmentStages.map((stage) => (
+                            <MenuItem key={stage} value={stage}>
+                              {stage}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
                     </TableCell>
                     <TableCell>{shipment.incoterm}</TableCell>
                     <TableCell>{shipment.owner}</TableCell>
@@ -88,6 +191,81 @@ export default function ShipmentsPage() {
           </SectionCard>
         </Grid>
       </Grid>
+
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Create shipment</DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField label="Customer" value={form.customer} onChange={(event) => setForm({ ...form, customer: event.target.value })} />
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <FormControl fullWidth>
+                  <InputLabel id="mode-label">Mode</InputLabel>
+                  <Select
+                    labelId="mode-label"
+                    label="Mode"
+                    value={form.mode}
+                    onChange={(event) => setForm({ ...form, mode: event.target.value as CreateShipmentInput["mode"] })}
+                  >
+                    {["Ocean", "Air", "Road", "Rail", "Multimodal"].map((mode) => (
+                      <MenuItem key={mode} value={mode}>
+                        {mode}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField label="Incoterm" value={form.incoterm} onChange={(event) => setForm({ ...form, incoterm: event.target.value.toUpperCase() })} fullWidth />
+              </Grid>
+            </Grid>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField label="Origin" value={form.origin} onChange={(event) => setForm({ ...form, origin: event.target.value })} fullWidth />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField label="Destination" value={form.destination} onChange={(event) => setForm({ ...form, destination: event.target.value })} fullWidth />
+              </Grid>
+            </Grid>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField label="Owner" value={form.owner} onChange={(event) => setForm({ ...form, owner: event.target.value })} fullWidth />
+              </Grid>
+              <Grid size={{ xs: 12, md: 3 }}>
+                <TextField
+                  label="Weight Kg"
+                  type="number"
+                  value={form.weightKg}
+                  onChange={(event) => setForm({ ...form, weightKg: Number(event.target.value) })}
+                  fullWidth
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 3 }}>
+                <TextField
+                  label="Margin %"
+                  type="number"
+                  value={form.marginPercent}
+                  onChange={(event) => setForm({ ...form, marginPercent: Number(event.target.value) })}
+                  fullWidth
+                />
+              </Grid>
+            </Grid>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={() => void handleCreateShipment()} disabled={saving}>
+            {saving ? "Creating..." : "Create shipment"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={Boolean(toastMessage)}
+        autoHideDuration={2500}
+        message={toastMessage}
+        onClose={() => setToastMessage("")}
+      />
     </>
   );
 }
