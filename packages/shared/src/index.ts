@@ -35,6 +35,59 @@ export interface UpdateShipmentInput extends CreateShipmentInput {
   containerRef?: string;
 }
 
+export type ShipmentDocumentType =
+  | "Commercial Invoice"
+  | "Packing List"
+  | "Air Waybill"
+  | "House Bill"
+  | "Customs Entry"
+  | "Delivery Order";
+
+export type ShipmentDocumentStatus = "Draft" | "Ready" | "Approved" | "Signed";
+
+export interface ShipmentDocument {
+  id: string;
+  shipmentId: string;
+  type: ShipmentDocumentType;
+  fileName: string;
+  status: ShipmentDocumentStatus;
+  uploadedBy: string;
+  updatedAt: string;
+  source: "Generated" | "Uploaded";
+}
+
+export interface ShipmentMilestone {
+  label: string;
+  status: "Complete" | "Current" | "Upcoming";
+  timestamp: string;
+  owner: string;
+}
+
+export interface ShipmentCostLine {
+  code: string;
+  description: string;
+  sellAmount: number;
+  costAmount: number;
+  currency: "USD" | "EUR" | "GBP" | "CNY" | "AUD";
+}
+
+export interface ShipmentDetail {
+  shipment: Shipment;
+  milestones: ShipmentMilestone[];
+  documents: ShipmentDocument[];
+  costLines: ShipmentCostLine[];
+  internalNotes: string[];
+  externalNotes: string[];
+  flags: string[];
+}
+
+export interface CreateShipmentDocumentInput {
+  type: ShipmentDocumentType;
+  fileName: string;
+  source: ShipmentDocument["source"];
+  uploadedBy: string;
+}
+
 export interface DashboardMetric {
   label: string;
   value: string;
@@ -199,3 +252,46 @@ export const platformOverview: PlatformOverview = {
     "Usage billing by jobs, users, and stored documents"
   ]
 };
+
+export const shipmentDocuments: ShipmentDocument[] = [
+  {
+    id: "DOC-1001",
+    shipmentId: "1",
+    type: "Commercial Invoice",
+    fileName: "CC-24018-commercial-invoice.pdf",
+    status: "Approved",
+    uploadedBy: "A. Mehta",
+    updatedAt: "2026-03-21T09:15:00.000Z",
+    source: "Generated"
+  },
+  {
+    id: "DOC-1002",
+    shipmentId: "1",
+    type: "Packing List",
+    fileName: "CC-24018-packing-list.pdf",
+    status: "Ready",
+    uploadedBy: "A. Mehta",
+    updatedAt: "2026-03-21T09:18:00.000Z",
+    source: "Generated"
+  },
+  {
+    id: "DOC-1003",
+    shipmentId: "2",
+    type: "Air Waybill",
+    fileName: "CC-24022-eawb.pdf",
+    status: "Approved",
+    uploadedBy: "J. Patel",
+    updatedAt: "2026-03-22T05:20:00.000Z",
+    source: "Generated"
+  },
+  {
+    id: "DOC-1004",
+    shipmentId: "4",
+    type: "Customs Entry",
+    fileName: "CC-23951-cbp-7501.pdf",
+    status: "Draft",
+    uploadedBy: "D. Shah",
+    updatedAt: "2026-03-22T19:45:00.000Z",
+    source: "Generated"
+  }
+];

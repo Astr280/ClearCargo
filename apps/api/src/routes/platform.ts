@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  addShipmentDocument,
   createShipment,
   deleteShipment,
   getComplianceQueue,
@@ -8,15 +9,30 @@ import {
   getFinanceSummary,
   getPlatformOverview,
   getShipmentById,
+  getShipmentDetail,
   getShipments,
   getWarehouseTasks,
   updateShipment,
   updateShipmentStage
 } from "../services/platform-data.js";
-import type { CreateShipmentInput, ShipmentStage, UpdateShipmentInput } from "../../../../packages/shared/src/index.js";
+import type {
+  CreateShipmentDocumentInput,
+  CreateShipmentInput,
+  ShipmentDocumentType,
+  ShipmentStage,
+  UpdateShipmentInput
+} from "../../../../packages/shared/src/index.js";
 
 const router = Router();
 const shipmentStages: ShipmentStage[] = ["Booking", "Confirmed", "In Transit", "Customs", "Delivered", "Closed"];
+const shipmentDocumentTypes: ShipmentDocumentType[] = [
+  "Commercial Invoice",
+  "Packing List",
+  "Air Waybill",
+  "House Bill",
+  "Customs Entry",
+  "Delivery Order"
+];
 
 router.get("/health", (_request, response) => {
   response.json({ status: "ok", service: "cargoclear-api" });
@@ -32,6 +48,17 @@ router.get("/shipments", (_request, response) => {
 
 router.get("/shipments/:id", (request, response) => {
   const shipment = getShipmentById(request.params.id);
+
+  if (!shipment) {
+    response.status(404).json({ message: "Shipment not found." });
+    return;
+  }
+
+  response.json(shipment);
+});
+
+router.get("/shipments/:id/detail", (request, response) => {
+  const shipment = getShipmentDetail(request.params.id);
 
   if (!shipment) {
     response.status(404).json({ message: "Shipment not found." });
@@ -106,6 +133,29 @@ router.patch("/shipments/:id/stage", (request, response) => {
   }
 
   response.json(shipment);
+});
+
+router.post("/shipments/:id/documents", (request, response) => {
+  const payload = request.body as Partial<CreateShipmentDocumentInput>;
+
+  if (
+    !payload.fileName ||
+    !payload.uploadedBy ||
+    !payload.source ||
+    !shipmentDocumentTypes.includes(payload.type as ShipmentDocumentType)
+  ) {
+    response.status(400).json({ message: "Invalid shipment document payload." });
+    return;
+  }
+
+  const document = addShipmentDocument(request.params.id, payload as CreateShipmentDocumentInput);
+
+  if (!document) {
+    response.status(404).json({ message: "Shipment not found." });
+    return;
+  }
+
+  response.status(201).json(document);
 });
 
 router.delete("/shipments/:id", (request, response) => {

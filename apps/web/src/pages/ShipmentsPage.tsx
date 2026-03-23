@@ -1,15 +1,22 @@
+import AddCircleOutlineRoundedIcon from "@mui/icons-material/AddCircleOutlineRounded";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import LaunchRoundedIcon from "@mui/icons-material/LaunchRounded";
+import RefreshOutlinedIcon from "@mui/icons-material/RefreshOutlined";
 import {
   Alert,
+  Box,
   Button,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   FormControl,
   Grid,
+  IconButton,
   InputLabel,
   MenuItem,
-  IconButton,
   Select,
   Snackbar,
   Stack,
@@ -21,14 +28,12 @@ import {
   TextField,
   Typography
 } from "@mui/material";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
-import RefreshOutlinedIcon from "@mui/icons-material/RefreshOutlined";
-import { useEffect, useState } from "react";
-import PageHeader from "../components/PageHeader";
-import SectionCard from "../components/SectionCard";
 import type { CreateShipmentInput, Shipment, ShipmentStage, UpdateShipmentInput } from "@shared/index";
 import { shipments } from "@shared/index";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import PageHeader from "../components/PageHeader";
+import SectionCard from "../components/SectionCard";
 import { fetchJson, requestJson } from "../lib/api";
 
 const shipmentStages: ShipmentStage[] = ["Booking", "Confirmed", "In Transit", "Customs", "Delivered", "Closed"];
@@ -66,6 +71,24 @@ export default function ShipmentsPage() {
   useEffect(() => {
     void loadShipments();
   }, []);
+
+  const stageCounts = useMemo(
+    () =>
+      shipmentStages.map((stage) => ({
+        stage,
+        count: data.filter((shipment) => shipment.stage === stage).length
+      })),
+    [data]
+  );
+
+  const modeCounts = useMemo(
+    () =>
+      ["Ocean", "Air", "Road", "Rail", "Multimodal"].map((mode) => ({
+        mode,
+        count: data.filter((shipment) => shipment.mode === mode).length
+      })),
+    [data]
+  );
 
   async function handleCreateShipment() {
     setSaving(true);
@@ -175,30 +198,64 @@ export default function ShipmentsPage() {
       <PageHeader
         eyebrow="Shipment management"
         title="Operational shipment workspace"
-        description="Unique jobs, multimodal handling, address-book relationships, incoterms, milestones, split shipments, cloned jobs, and document linkage all belong here."
+        description="Create, review, and move multimodal jobs through booking, execution, customs, delivery, and closure with the shipment register and detail workbook working together."
         actions={
           <Stack direction="row" spacing={1}>
-            <Button startIcon={<RefreshOutlinedIcon />} onClick={() => void loadShipments()}>
+            <Button startIcon={<RefreshOutlinedIcon />} variant="outlined" onClick={() => void loadShipments()}>
               Refresh
             </Button>
-            <Button variant="contained" onClick={openCreateDialog}>New job</Button>
+            <Button variant="contained" startIcon={<AddCircleOutlineRoundedIcon />} onClick={openCreateDialog}>
+              New job
+            </Button>
           </Stack>
         }
-        status="MVP scope"
+        status="Persistent shipment core"
       />
 
       {error ? <Alert sx={{ mb: 2 }}>{error}</Alert> : null}
-      <Grid container spacing={2}>
+
+      <Grid container spacing={2.5}>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <SectionCard title="Live shipment count" subtitle="Operational records with API persistence">
+            <Typography variant="h3" sx={{ mb: 1 }}>
+              {data.length}
+            </Typography>
+            <Typography color="text.secondary" sx={{ lineHeight: 1.7 }}>
+              Jobs now support create, edit, stage updates, detail drill-down, document linkage, refresh, and delete.
+            </Typography>
+          </SectionCard>
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 4 }}>
+          <SectionCard title="Stage coverage" subtitle="Pipeline visibility by execution phase">
+            <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+              {stageCounts.map((item) => (
+                <Chip key={item.stage} label={`${item.stage} - ${item.count}`} sx={{ bgcolor: "rgba(15,79,191,0.06)" }} />
+              ))}
+            </Stack>
+          </SectionCard>
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 4 }}>
+          <SectionCard title="Mode mix" subtitle="Multimodal operational spread">
+            <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+              {modeCounts.map((item) => (
+                <Chip key={item.mode} label={`${item.mode} - ${item.count}`} variant="outlined" />
+              ))}
+            </Stack>
+          </SectionCard>
+        </Grid>
+
         <Grid size={12}>
-          <SectionCard title="Shipment register" subtitle="Representative jobs from the seeded operational dataset">
-            <Table>
+          <SectionCard title="Shipment register" subtitle="Actionable table for execution teams">
+            <Table sx={{ "& td, & th": { borderBottomColor: "rgba(15,79,191,0.08)" } }}>
               <TableHead>
                 <TableRow>
                   <TableCell>Job</TableCell>
                   <TableCell>Customer</TableCell>
                   <TableCell>Mode</TableCell>
                   <TableCell>Stage</TableCell>
-                  <TableCell>Incoterm</TableCell>
+                  <TableCell>Commercial</TableCell>
                   <TableCell>Owner</TableCell>
                   <TableCell>Margin</TableCell>
                   <TableCell align="right">Actions</TableCell>
@@ -206,15 +263,31 @@ export default function ShipmentsPage() {
               </TableHead>
               <TableBody>
                 {data.map((shipment) => (
-                  <TableRow key={shipment.id} hover>
+                  <TableRow
+                    key={shipment.id}
+                    hover
+                    sx={{
+                      "&:hover": {
+                        backgroundColor: "rgba(15,79,191,0.02)"
+                      }
+                    }}
+                  >
                     <TableCell>
-                      <Typography fontWeight={700}>{shipment.jobNumber}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {shipment.origin} to {shipment.destination}
-                      </Typography>
+                      <Stack spacing={0.5}>
+                        <Typography component={Link} to={`/shipments/${shipment.id}`} fontWeight={700} sx={{ color: "primary.main" }}>
+                          {shipment.jobNumber}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {shipment.origin} to {shipment.destination}
+                        </Typography>
+                      </Stack>
                     </TableCell>
-                    <TableCell>{shipment.customer}</TableCell>
-                    <TableCell>{shipment.mode}</TableCell>
+                    <TableCell>
+                      <Typography fontWeight={700}>{shipment.customer}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip size="small" label={shipment.mode} />
+                    </TableCell>
                     <TableCell>
                       <FormControl size="small" sx={{ minWidth: 150 }}>
                         <Select
@@ -229,52 +302,110 @@ export default function ShipmentsPage() {
                         </Select>
                       </FormControl>
                     </TableCell>
-                  <TableCell>{shipment.incoterm}</TableCell>
-                  <TableCell>{shipment.owner}</TableCell>
-                  <TableCell>{shipment.marginPercent}%</TableCell>
-                  <TableCell align="right">
-                    <IconButton onClick={() => openEditDialog(shipment)}>
-                      <EditOutlinedIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton color="error" onClick={() => void handleDeleteShipment(shipment.id)}>
-                      <DeleteOutlineIcon fontSize="small" />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    <TableCell>
+                      <Stack spacing={0.25}>
+                        <Typography fontWeight={700}>{shipment.incoterm}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {shipment.weightKg.toLocaleString()} kg
+                        </Typography>
+                      </Stack>
+                    </TableCell>
+                    <TableCell>{shipment.owner}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={`${shipment.marginPercent}%`}
+                        color={shipment.marginPercent >= 15 ? "success" : shipment.marginPercent >= 10 ? "warning" : "error"}
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell align="right">
+                      <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                        <IconButton
+                          component={Link}
+                          to={`/shipments/${shipment.id}`}
+                          sx={{ border: "1px solid rgba(15,79,191,0.08)" }}
+                        >
+                          <LaunchRoundedIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          onClick={() => openEditDialog(shipment)}
+                          sx={{ border: "1px solid rgba(15,79,191,0.08)" }}
+                        >
+                          <EditOutlinedIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          color="error"
+                          onClick={() => void handleDeleteShipment(shipment.id)}
+                          sx={{ border: "1px solid rgba(209,78,72,0.12)" }}
+                        >
+                          <DeleteOutlineIcon fontSize="small" />
+                        </IconButton>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </SectionCard>
         </Grid>
 
-        <Grid size={{ xs: 12, md: 6 }}>
-          <SectionCard title="Spec-backed workflow features">
-            <Stack spacing={1}>
+        <Grid size={{ xs: 12, lg: 5 }}>
+          <SectionCard title="Operator checklist" subtitle="What this module already supports">
+            <Stack spacing={1.1}>
               {[
                 "Auto-generated configurable job numbers",
-                "FCL, LCL, air, road, rail, and multimodal support",
-                "Consignee, shipper, and notify-party management",
-                "DG / IMDG and reefer compliance markers",
-                "Milestones with timestamp and user attribution",
-                "CSV / Excel bulk import and job clone support"
+                "Multimodal freight records with operational ownership",
+                "Stage transitions from booking through closure",
+                "Persistent shipment CRUD through the API",
+                "Detail pages with milestones, notes, and linked documents"
               ].map((item) => (
-                <Typography key={item}>{item}</Typography>
+                <Box
+                  key={item}
+                  sx={{
+                    px: 1.5,
+                    py: 1.25,
+                    borderRadius: 4,
+                    bgcolor: "rgba(15,79,191,0.04)"
+                  }}
+                >
+                  <Typography variant="body2" sx={{ lineHeight: 1.7 }}>
+                    {item}
+                  </Typography>
+                </Box>
               ))}
             </Stack>
           </SectionCard>
         </Grid>
-        <Grid size={{ xs: 12, md: 6 }}>
-          <SectionCard title="Document and carrier linkage">
-            <Stack spacing={1}>
+
+        <Grid size={{ xs: 12, lg: 7 }}>
+          <SectionCard title="Module readiness" subtitle="Operational and commercial context">
+            <Grid container spacing={1.5}>
               {[
-                "Attach unlimited documents per shipment",
-                "Generate AWB, HBL, MBL, invoice, packing list, release instructions",
-                "Track vessel / flight schedules and container references",
-                "Spot-rate comparison and carrier-lane rates belong in this module"
+                { title: "Document packet", text: "AWB, HBL, MBL, invoice, packing list, customs summary, and delivery instructions." },
+                { title: "Carrier linkage", text: "Schedule lookups, booking references, lane-level coordination, and shipment-level milestones." },
+                { title: "Commercial control", text: "Margin tracking, incoterms, owner attribution, customer records, and cost lines." },
+                { title: "Next build target", text: "Document template generation, approvals, and customer portal visibility controls." }
               ].map((item) => (
-                <Typography key={item}>{item}</Typography>
+                <Grid key={item.title} size={{ xs: 12, md: 6 }}>
+                  <Box
+                    sx={{
+                      p: 2,
+                      height: "100%",
+                      borderRadius: 5,
+                      border: "1px solid rgba(15,79,191,0.08)",
+                      background: "linear-gradient(180deg, rgba(255,255,255,0.78), rgba(245,249,255,0.78))"
+                    }}
+                  >
+                    <Typography fontWeight={700} sx={{ mb: 0.75 }}>
+                      {item.title}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7 }}>
+                      {item.text}
+                    </Typography>
+                  </Box>
+                </Grid>
               ))}
-            </Stack>
+            </Grid>
           </SectionCard>
         </Grid>
       </Grid>
@@ -287,10 +418,15 @@ export default function ShipmentsPage() {
         }}
         fullWidth
         maxWidth="sm"
+        PaperProps={{
+          sx: {
+            borderRadius: 6
+          }
+        }}
       >
         <DialogTitle>{editingShipment ? `Edit ${editingShipment.jobNumber}` : "Create shipment"}</DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
-          <Stack spacing={2} sx={{ mt: 1 }}>
+          <Stack spacing={2.2} sx={{ mt: 1 }}>
             <TextField label="Customer" value={form.customer} onChange={(event) => setForm({ ...form, customer: event.target.value })} />
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, md: 6 }}>
@@ -311,7 +447,12 @@ export default function ShipmentsPage() {
                 </FormControl>
               </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
-                <TextField label="Incoterm" value={form.incoterm} onChange={(event) => setForm({ ...form, incoterm: event.target.value.toUpperCase() })} fullWidth />
+                <TextField
+                  label="Incoterm"
+                  value={form.incoterm}
+                  onChange={(event) => setForm({ ...form, incoterm: event.target.value.toUpperCase() })}
+                  fullWidth
+                />
               </Grid>
             </Grid>
             <Grid container spacing={2}>
@@ -319,7 +460,12 @@ export default function ShipmentsPage() {
                 <TextField label="Origin" value={form.origin} onChange={(event) => setForm({ ...form, origin: event.target.value })} fullWidth />
               </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
-                <TextField label="Destination" value={form.destination} onChange={(event) => setForm({ ...form, destination: event.target.value })} fullWidth />
+                <TextField
+                  label="Destination"
+                  value={form.destination}
+                  onChange={(event) => setForm({ ...form, destination: event.target.value })}
+                  fullWidth
+                />
               </Grid>
             </Grid>
             <Grid container spacing={2}>
@@ -347,7 +493,7 @@ export default function ShipmentsPage() {
             </Grid>
           </Stack>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
           <Button
             onClick={() => {
               setDialogOpen(false);
