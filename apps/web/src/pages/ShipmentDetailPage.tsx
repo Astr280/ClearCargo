@@ -35,6 +35,8 @@ import type {
 } from "@shared/index";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext";
+import { canManageShipmentDocuments } from "../auth/access";
 import MetricGrid from "../components/MetricGrid";
 import PageHeader from "../components/PageHeader";
 import SectionCard from "../components/SectionCard";
@@ -66,6 +68,7 @@ function formatTimestamp(value: string) {
 }
 
 export default function ShipmentDetailPage() {
+  const { session } = useAuth();
   const { id } = useParams();
   const [data, setData] = useState<ShipmentDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +76,7 @@ export default function ShipmentDetailPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [documentForm, setDocumentForm] = useState<CreateShipmentDocumentInput>(initialDocumentForm);
+  const canAddDocuments = session ? canManageShipmentDocuments(session.user.role) : false;
 
   async function loadDetail() {
     if (!id) {
@@ -172,9 +176,11 @@ export default function ShipmentDetailPage() {
             <Button component={Link} to="/shipments" startIcon={<ArrowBackRoundedIcon />} variant="outlined">
               Back to register
             </Button>
-            <Button startIcon={<UploadFileRoundedIcon />} variant="contained" onClick={() => setDialogOpen(true)}>
-              Add document
-            </Button>
+            {canAddDocuments ? (
+              <Button startIcon={<UploadFileRoundedIcon />} variant="contained" onClick={() => setDialogOpen(true)}>
+                Add document
+              </Button>
+            ) : null}
           </Stack>
         }
       />

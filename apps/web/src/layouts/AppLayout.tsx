@@ -3,6 +3,7 @@ import FlashOnOutlinedIcon from "@mui/icons-material/FlashOnOutlined";
 import GavelOutlinedIcon from "@mui/icons-material/GavelOutlined";
 import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
+import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import PaymentsOutlinedIcon from "@mui/icons-material/PaymentsOutlined";
 import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
 import SettingsEthernetOutlinedIcon from "@mui/icons-material/SettingsEthernetOutlined";
@@ -11,6 +12,7 @@ import {
   AppBar,
   Avatar,
   Box,
+  Button,
   Chip,
   Drawer,
   InputAdornment,
@@ -21,25 +23,37 @@ import {
   Stack,
   TextField,
   Toolbar,
-  Typography
+  Typography,
+  alpha
 } from "@mui/material";
-import type { PropsWithChildren } from "react";
+import type { ModuleKey } from "@shared/index";
+import type { PropsWithChildren, ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext";
+import { canAccessModule } from "../auth/access";
 
 const drawerWidth = 292;
 
-const navItems = [
-  { label: "Control Tower", to: "/", icon: <DashboardOutlinedIcon /> },
-  { label: "Shipments", to: "/shipments", icon: <Inventory2OutlinedIcon /> },
-  { label: "Customs", to: "/compliance", icon: <GavelOutlinedIcon /> },
-  { label: "Finance", to: "/finance", icon: <PaymentsOutlinedIcon /> },
-  { label: "Warehouse", to: "/warehouse", icon: <WarehouseOutlinedIcon /> },
-  { label: "Customers", to: "/customers", icon: <GroupsOutlinedIcon /> },
-  { label: "Platform", to: "/platform", icon: <SettingsEthernetOutlinedIcon /> }
+const navItems: Array<{ label: string; to: string; icon: ReactNode; moduleKey: ModuleKey }> = [
+  { label: "Control Tower", to: "/", icon: <DashboardOutlinedIcon />, moduleKey: "dashboard" },
+  { label: "Shipments", to: "/shipments", icon: <Inventory2OutlinedIcon />, moduleKey: "shipments" },
+  { label: "Customs", to: "/compliance", icon: <GavelOutlinedIcon />, moduleKey: "compliance" },
+  { label: "Finance", to: "/finance", icon: <PaymentsOutlinedIcon />, moduleKey: "finance" },
+  { label: "Warehouse", to: "/warehouse", icon: <WarehouseOutlinedIcon />, moduleKey: "warehouse" },
+  { label: "Customers", to: "/customers", icon: <GroupsOutlinedIcon />, moduleKey: "customers" },
+  { label: "Platform", to: "/platform", icon: <SettingsEthernetOutlinedIcon />, moduleKey: "platform" }
 ];
 
 export default function AppLayout({ children }: PropsWithChildren) {
   const location = useLocation();
+  const { session, logout } = useAuth();
+
+  if (!session) {
+    return children;
+  }
+
+  const visibleNavItems = navItems.filter((item) => canAccessModule(session.user.role, session.tenant, item.moduleKey));
+  const branding = session.tenant.branding;
 
   return (
     <Box sx={{ display: "flex", minHeight: "100vh" }}>
@@ -52,25 +66,33 @@ export default function AppLayout({ children }: PropsWithChildren) {
             width: drawerWidth,
             boxSizing: "border-box",
             borderRight: "1px solid rgba(255,255,255,0.06)",
-            background:
-              "radial-gradient(circle at top left, rgba(25,170,199,0.26), transparent 24%), linear-gradient(180deg, #081933 0%, #0f2851 55%, #14386c 100%)",
+            background: `radial-gradient(circle at top left, ${alpha(branding.secondaryColor, 0.26)}, transparent 24%), linear-gradient(180deg, ${branding.accentColor} 0%, ${alpha(
+              branding.primaryColor,
+              0.88
+            )} 62%, ${alpha(branding.secondaryColor, 0.72)} 100%)`,
             color: "#fff"
           }
         }}
       >
         <Box sx={{ p: 3, display: "flex", flexDirection: "column", height: "100%" }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
-            <Box
-              component="img"
-              src="/cargoclear-mark.svg"
-              alt="CargoClear"
-              sx={{ width: 58, height: 58, borderRadius: 4, bgcolor: "#fff", p: 0.5 }}
-            />
+            {branding.logoMode === "mark" ? (
+              <Box
+                component="img"
+                src="/cargoclear-mark.svg"
+                alt={branding.companyName}
+                sx={{ width: 58, height: 58, borderRadius: 4, bgcolor: "#fff", p: 0.5 }}
+              />
+            ) : (
+              <Avatar sx={{ width: 58, height: 58, bgcolor: "#fff", color: branding.primaryColor, fontWeight: 700 }}>
+                {branding.initials}
+              </Avatar>
+            )}
             <Box>
-              <Typography variant="overline" sx={{ color: "rgba(255,255,255,0.7)" }}>
-                Enterprise freight OS
+              <Typography variant="overline" sx={{ color: "rgba(255,255,255,0.72)" }}>
+                {session.tenant.domain}
               </Typography>
-              <Typography variant="h5">CargoClear</Typography>
+              <Typography variant="h5">{branding.companyName}</Typography>
             </Box>
           </Box>
 
@@ -84,42 +106,53 @@ export default function AppLayout({ children }: PropsWithChildren) {
             }}
           >
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-              <FlashOnOutlinedIcon sx={{ fontSize: 18, color: "#77d3e6" }} />
-              <Typography variant="subtitle2">Launch pulse</Typography>
+              <FlashOnOutlinedIcon sx={{ fontSize: 18, color: "#dcefff" }} />
+              <Typography variant="subtitle2">Access profile</Typography>
             </Stack>
-            <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.74)", lineHeight: 1.7 }}>
-              Freight forwarding, customs, finance, warehousing, CRM, and customer visibility in one integrated workspace.
+            <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.78)", lineHeight: 1.7 }}>
+              Signed in as {session.user.role}. Module access and branding are now controlled by tenant configuration and role policy.
             </Typography>
             <Stack direction="row" spacing={1} sx={{ mt: 1.5 }} useFlexGap flexWrap="wrap">
-              <Chip size="small" label="Shipment CRUD" sx={{ bgcolor: "rgba(119,211,230,0.16)", color: "#fff" }} />
-              <Chip size="small" label="Persistent jobs" sx={{ bgcolor: "rgba(119,211,230,0.16)", color: "#fff" }} />
+              <Chip size="small" label={session.user.role} sx={{ bgcolor: "rgba(255,255,255,0.14)", color: "#fff" }} />
+              <Chip
+                size="small"
+                label={`${session.tenant.enabledModules.length} modules enabled`}
+                sx={{ bgcolor: "rgba(255,255,255,0.14)", color: "#fff" }}
+              />
             </Stack>
           </Box>
 
           <List sx={{ display: "grid", gap: 1 }}>
-            {navItems.map((item) => (
-              <ListItemButton
-                key={item.to}
-                component={Link}
-                to={item.to}
-                selected={location.pathname === item.to}
-                sx={{
-                  borderRadius: 4,
-                  color: "#fff",
-                  px: 1.25,
-                  py: 0.75,
-                  "&:hover": {
-                    background: "rgba(255,255,255,0.08)"
-                  },
-                  "&.Mui-selected": {
-                    background: "linear-gradient(135deg, rgba(73,183,211,0.26), rgba(22,89,199,0.4))"
-                  }
-                }}
-              >
-                <ListItemIcon sx={{ color: "#fff", minWidth: 40 }}>{item.icon}</ListItemIcon>
-                <ListItemText primary={item.label} />
-              </ListItemButton>
-            ))}
+            {visibleNavItems.map((item) => {
+              const selected =
+                item.to === "/shipments"
+                  ? location.pathname.startsWith("/shipments")
+                  : location.pathname === item.to;
+
+              return (
+                <ListItemButton
+                  key={item.to}
+                  component={Link}
+                  to={item.to}
+                  selected={selected}
+                  sx={{
+                    borderRadius: 4,
+                    color: "#fff",
+                    px: 1.25,
+                    py: 0.75,
+                    "&:hover": {
+                      background: "rgba(255,255,255,0.08)"
+                    },
+                    "&.Mui-selected": {
+                      background: "linear-gradient(135deg, rgba(255,255,255,0.16), rgba(255,255,255,0.08))"
+                    }
+                  }}
+                >
+                  <ListItemIcon sx={{ color: "#fff", minWidth: 40 }}>{item.icon}</ListItemIcon>
+                  <ListItemText primary={item.label} />
+                </ListItemButton>
+              );
+            })}
           </List>
 
           <Box
@@ -132,13 +165,13 @@ export default function AppLayout({ children }: PropsWithChildren) {
             }}
           >
             <Typography variant="overline" sx={{ color: "rgba(255,255,255,0.64)" }}>
-              Deployment state
+              Tenant status
             </Typography>
             <Typography variant="h6" sx={{ mt: 0.5 }}>
-              Phase 1 foundation
+              White-label ready
             </Typography>
-            <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.7)", mt: 0.75, lineHeight: 1.7 }}>
-              UI shell, API modules, shared models, shipment create/edit/delete, and persistent seeded data are live.
+            <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.74)", mt: 0.75, lineHeight: 1.7 }}>
+              Branding, feature flags, and role access now change by tenant without altering the app shell.
             </Typography>
           </Box>
         </Box>
@@ -150,8 +183,8 @@ export default function AppLayout({ children }: PropsWithChildren) {
           elevation={0}
           sx={{
             background: "rgba(255,255,255,0.72)",
-            color: "#17315c",
-            borderBottom: "1px solid rgba(22,89,199,0.08)",
+            color: branding.accentColor,
+            borderBottom: `1px solid ${alpha(branding.primaryColor, 0.08)}`,
             backdropFilter: "blur(18px)"
           }}
         >
@@ -177,19 +210,23 @@ export default function AppLayout({ children }: PropsWithChildren) {
               }}
             />
             <Stack direction="row" spacing={1} sx={{ display: { xs: "none", md: "flex" } }}>
-              <Chip label="99.9% SLA target" variant="outlined" />
+              <Chip label="MFA verified" variant="outlined" />
               <Chip label="RBAC active" variant="outlined" />
+              <Chip label={session.tenant.name} variant="outlined" />
             </Stack>
             <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 1.5 }}>
-              <Box>
+              <Box sx={{ textAlign: "right" }}>
                 <Typography variant="body2" fontWeight={700}>
-                  Astr280
+                  {session.user.name}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  System Admin
+                  {session.user.role}
                 </Typography>
               </Box>
-              <Avatar sx={{ bgcolor: "#1659c7" }}>A</Avatar>
+              <Avatar sx={{ bgcolor: branding.primaryColor }}>{session.user.name.charAt(0)}</Avatar>
+              <Button variant="outlined" startIcon={<LogoutRoundedIcon />} onClick={() => void logout()}>
+                Sign out
+              </Button>
             </Box>
           </Toolbar>
         </AppBar>

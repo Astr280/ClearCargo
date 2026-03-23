@@ -6,7 +6,6 @@ import {
   type CreateShipmentDocumentInput,
   type CreateShipmentInput,
   customers,
-  dashboardMetrics,
   financeSummary,
   platformOverview,
   shipments,
@@ -15,8 +14,8 @@ import {
   type ShipmentDetail,
   type ShipmentDocument,
   type Shipment,
-  type UpdateShipmentInput,
   type ShipmentStage,
+  type UpdateShipmentInput,
   warehouseTasks
 } from "../../../../packages/shared/src/index.js";
 
@@ -69,6 +68,10 @@ function persistDocuments() {
 const shipmentStore: Shipment[] = loadShipmentStore();
 const documentStore: ShipmentDocument[] = loadDocumentStore();
 
+function shipmentsForTenant(tenantId: string) {
+  return shipmentStore.filter((shipment) => shipment.tenantId === tenantId);
+}
+
 function nextShipmentSequence() {
   return shipmentStore.reduce((highest, shipment) => {
     const numericPart = Number(shipment.jobNumber.replace(/\D/g, ""));
@@ -76,20 +79,50 @@ function nextShipmentSequence() {
   }, 24022) + 1;
 }
 
-export function getDashboardPayload() {
+export function getDashboardPayload(tenantId: string) {
+  const tenantShipments = shipmentsForTenant(tenantId);
+  const deliveredCount = tenantShipments.filter((shipment) => shipment.stage === "Delivered" || shipment.stage === "Closed").length;
+  const docsGenerated = documentStore.filter((document) =>
+    tenantShipments.some((shipment) => shipment.id === document.shipmentId)
+  ).length;
+  const averageMargin = tenantShipments.length
+    ? tenantShipments.reduce((sum, shipment) => sum + shipment.marginPercent, 0) / tenantShipments.length
+    : 0;
+
   return {
-    metrics: dashboardMetrics,
-    recentShipments: shipmentStore.slice(0, 4),
+    metrics: [
+      {
+        label: "Open Shipments",
+        value: tenantShipments.length.toLocaleString(),
+        trend: `${tenantShipments.filter((shipment) => shipment.stage !== "Closed").length} active jobs in execution`
+      },
+      {
+        label: "Docs Generated",
+        value: docsGenerated.toLocaleString(),
+        trend: `${Math.max(docsGenerated * 12, 24)} files projected at scale`
+      },
+      {
+        label: "Delivered",
+        value: deliveredCount.toLocaleString(),
+        trend: `${Math.max(tenantShipments.length - deliveredCount, 0)} jobs still moving through the pipeline`
+      },
+      {
+        label: "Avg GP",
+        value: `${averageMargin.toFixed(1)}%`,
+        trend: "Tenant-scoped shipment profitability"
+      }
+    ],
+    recentShipments: tenantShipments.slice(0, 4),
     platform: platformOverview.architecture
   };
 }
 
-export function getShipments() {
-  return shipmentStore;
+export function getShipments(tenantId: string) {
+  return shipmentsForTenant(tenantId);
 }
 
-export function getShipmentById(id: string) {
-  return shipmentStore.find((item) => item.id === id) ?? null;
+export function getShipmentById(id: string, tenantId: string) {
+  return shipmentStore.find((item) => item.id === id && item.tenantId === tenantId) ?? null;
 }
 
 function buildMilestones(shipment: Shipment) {
@@ -155,8 +188,8 @@ function buildFlags(shipment: Shipment) {
   return flags;
 }
 
-export function getShipmentDetail(id: string) {
-  const shipment = getShipmentById(id);
+export function getShipmentDetail(id: string, tenantId: string) {
+  const shipment = getShipmentById(id, tenantId);
 
   if (!shipment) {
     return null;
@@ -182,9 +215,10 @@ export function getShipmentDetail(id: string) {
   } satisfies ShipmentDetail;
 }
 
-export function createShipment(input: CreateShipmentInput) {
+export function createShipment(input: CreateShipmentInput, tenantId: string) {
   const shipment: Shipment = {
     id: crypto.randomUUID(),
+    tenantId,
     jobNumber: `CC-${nextShipmentSequence()}`,
     stage: "Booking",
     containerRef: undefined,
@@ -196,8 +230,8 @@ export function createShipment(input: CreateShipmentInput) {
   return shipment;
 }
 
-export function updateShipmentStage(id: string, stage: ShipmentStage) {
-  const shipment = shipmentStore.find((item) => item.id === id);
+export function updateShipmentStage(id: string, tenantId: string, stage: ShipmentStage) {
+  const shipment = shipmentStore.find((item) => item.id === id && item.tenantId === tenantId);
 
   if (!shipment) {
     return null;
@@ -208,8 +242,8 @@ export function updateShipmentStage(id: string, stage: ShipmentStage) {
   return shipment;
 }
 
-export function updateShipment(id: string, input: UpdateShipmentInput) {
-  const shipment = shipmentStore.find((item) => item.id === id);
+export function updateShipment(id: string, tenantId: string, input: UpdateShipmentInput) {
+  const shipment = shipmentStore.find((item) => item.id === id && item.tenantId === tenantId);
 
   if (!shipment) {
     return null;
@@ -220,8 +254,8 @@ export function updateShipment(id: string, input: UpdateShipmentInput) {
   return shipment;
 }
 
-export function deleteShipment(id: string) {
-  const index = shipmentStore.findIndex((item) => item.id === id);
+export function deleteShipment(id: string, tenantId: string) {
+  const index = shipmentStore.findIndex((item) => item.id === id && item.tenantId === tenantId);
 
   if (index === -1) {
     return null;
@@ -235,8 +269,8 @@ export function deleteShipment(id: string) {
   return deleted;
 }
 
-export function addShipmentDocument(shipmentId: string, input: CreateShipmentDocumentInput) {
-  const shipment = getShipmentById(shipmentId);
+export function addShipmentDocument(shipmentId: string, tenantId: string, input: CreateShipmentDocumentInput, uploadedBy: string) {
+  const shipment = getShipmentById(shipmentId, tenantId);
 
   if (!shipment) {
     return null;
@@ -248,7 +282,7 @@ export function addShipmentDocument(shipmentId: string, input: CreateShipmentDoc
     type: input.type,
     fileName: input.fileName,
     status: "Ready",
-    uploadedBy: input.uploadedBy,
+    uploadedBy,
     updatedAt: new Date().toISOString(),
     source: input.source
   };
@@ -270,8 +304,8 @@ export function getWarehouseTasks() {
   return warehouseTasks;
 }
 
-export function getCustomers() {
-  return customers;
+export function getCustomers(tenantId: string) {
+  return customers.filter((customer) => customer.tenantId === tenantId);
 }
 
 export function getPlatformOverview() {

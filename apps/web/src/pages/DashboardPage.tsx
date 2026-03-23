@@ -17,6 +17,8 @@ import {
 } from "@mui/material";
 import { dashboardMetrics, platformOverview } from "@shared/index";
 import { Link } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext";
+import { canMutateShipments } from "../auth/access";
 import MetricGrid from "../components/MetricGrid";
 import PageHeader from "../components/PageHeader";
 import SectionCard from "../components/SectionCard";
@@ -38,6 +40,7 @@ interface DashboardResponse {
 }
 
 export default function DashboardPage() {
+  const { session } = useAuth();
   const { data, loading, error } = useApiResource<DashboardResponse>("/dashboard", {
     metrics: dashboardMetrics,
     recentShipments: [],
@@ -52,9 +55,11 @@ export default function DashboardPage() {
         description="A clearer control surface for freight execution, customs queues, finance visibility, customer operations, and platform readiness."
         status="Phase 1 foundation in progress"
         actions={
+          session && canMutateShipments(session.user.role) ? (
           <Button component={Link} to="/shipments" variant="contained">
             Create shipment
           </Button>
+          ) : undefined
         }
       />
 

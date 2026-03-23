@@ -32,6 +32,8 @@ import type { CreateShipmentInput, Shipment, ShipmentStage, UpdateShipmentInput 
 import { shipments } from "@shared/index";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext";
+import { canMutateShipments } from "../auth/access";
 import PageHeader from "../components/PageHeader";
 import SectionCard from "../components/SectionCard";
 import { fetchJson, requestJson } from "../lib/api";
@@ -50,6 +52,7 @@ const initialForm: CreateShipmentInput = {
 };
 
 export default function ShipmentsPage() {
+  const { session } = useAuth();
   const [data, setData] = useState<Shipment[]>(shipments);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -89,6 +92,7 @@ export default function ShipmentsPage() {
       })),
     [data]
   );
+  const canEdit = session ? canMutateShipments(session.user.role) : false;
 
   async function handleCreateShipment() {
     setSaving(true);
@@ -204,9 +208,11 @@ export default function ShipmentsPage() {
             <Button startIcon={<RefreshOutlinedIcon />} variant="outlined" onClick={() => void loadShipments()}>
               Refresh
             </Button>
-            <Button variant="contained" startIcon={<AddCircleOutlineRoundedIcon />} onClick={openCreateDialog}>
-              New job
-            </Button>
+            {canEdit ? (
+              <Button variant="contained" startIcon={<AddCircleOutlineRoundedIcon />} onClick={openCreateDialog}>
+                New job
+              </Button>
+            ) : null}
           </Stack>
         }
         status="Persistent shipment core"
@@ -289,18 +295,22 @@ export default function ShipmentsPage() {
                       <Chip size="small" label={shipment.mode} />
                     </TableCell>
                     <TableCell>
-                      <FormControl size="small" sx={{ minWidth: 150 }}>
-                        <Select
-                          value={shipment.stage}
-                          onChange={(event) => void handleStageChange(shipment.id, event.target.value as ShipmentStage)}
-                        >
-                          {shipmentStages.map((stage) => (
-                            <MenuItem key={stage} value={stage}>
-                              {stage}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
+                      {canEdit ? (
+                        <FormControl size="small" sx={{ minWidth: 150 }}>
+                          <Select
+                            value={shipment.stage}
+                            onChange={(event) => void handleStageChange(shipment.id, event.target.value as ShipmentStage)}
+                          >
+                            {shipmentStages.map((stage) => (
+                              <MenuItem key={stage} value={stage}>
+                                {stage}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      ) : (
+                        <Chip size="small" label={shipment.stage} variant="outlined" />
+                      )}
                     </TableCell>
                     <TableCell>
                       <Stack spacing={0.25}>
@@ -327,19 +337,23 @@ export default function ShipmentsPage() {
                         >
                           <LaunchRoundedIcon fontSize="small" />
                         </IconButton>
-                        <IconButton
-                          onClick={() => openEditDialog(shipment)}
-                          sx={{ border: "1px solid rgba(15,79,191,0.08)" }}
-                        >
-                          <EditOutlinedIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton
-                          color="error"
-                          onClick={() => void handleDeleteShipment(shipment.id)}
-                          sx={{ border: "1px solid rgba(209,78,72,0.12)" }}
-                        >
-                          <DeleteOutlineIcon fontSize="small" />
-                        </IconButton>
+                        {canEdit ? (
+                          <IconButton
+                            onClick={() => openEditDialog(shipment)}
+                            sx={{ border: "1px solid rgba(15,79,191,0.08)" }}
+                          >
+                            <EditOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        ) : null}
+                        {canEdit ? (
+                          <IconButton
+                            color="error"
+                            onClick={() => void handleDeleteShipment(shipment.id)}
+                            sx={{ border: "1px solid rgba(209,78,72,0.12)" }}
+                          >
+                            <DeleteOutlineIcon fontSize="small" />
+                          </IconButton>
+                        ) : null}
                       </Stack>
                     </TableCell>
                   </TableRow>

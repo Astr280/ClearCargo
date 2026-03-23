@@ -2,6 +2,7 @@ export type ShipmentStage = "Booking" | "Confirmed" | "In Transit" | "Customs" |
 
 export interface Shipment {
   id: string;
+  tenantId: string;
   jobNumber: string;
   mode: "Ocean" | "Air" | "Road" | "Rail" | "Multimodal";
   stage: ShipmentStage;
@@ -88,6 +89,66 @@ export interface CreateShipmentDocumentInput {
   uploadedBy: string;
 }
 
+export type UserRole =
+  | "Freight Coordinator"
+  | "Customs Broker"
+  | "Finance / Billing"
+  | "Warehouse Manager"
+  | "Operations Manager"
+  | "System Admin"
+  | "Customer";
+
+export type ModuleKey = "dashboard" | "shipments" | "compliance" | "finance" | "warehouse" | "customers" | "platform";
+
+export interface TenantBranding {
+  companyName: string;
+  logoMode: "mark" | "initials";
+  initials: string;
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+}
+
+export interface TenantConfig {
+  id: string;
+  name: string;
+  domain: string;
+  branding: TenantBranding;
+  enabledModules: ModuleKey[];
+}
+
+export interface AppUser {
+  id: string;
+  tenantId: string;
+  name: string;
+  email: string;
+  role: UserRole;
+}
+
+export interface AuthSession {
+  token: string;
+  user: AppUser;
+  tenant: TenantConfig;
+  mfaVerified: boolean;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+  mfaCode?: string;
+}
+
+export interface LoginResponse {
+  session?: AuthSession;
+  mfaRequired?: boolean;
+  challenge?: {
+    email: string;
+    role: UserRole;
+    tenantName: string;
+  };
+  message?: string;
+}
+
 export interface DashboardMetric {
   label: string;
   value: string;
@@ -117,6 +178,7 @@ export interface WarehouseTask {
 }
 
 export interface CustomerAccount {
+  tenantId: string;
   name: string;
   lane: string;
   creditTerms: string;
@@ -140,6 +202,7 @@ export const dashboardMetrics: DashboardMetric[] = [
 export const shipments: Shipment[] = [
   {
     id: "1",
+    tenantId: "tenant-cargoclear",
     jobNumber: "CC-24018",
     mode: "Ocean",
     stage: "Booking",
@@ -154,6 +217,7 @@ export const shipments: Shipment[] = [
   },
   {
     id: "2",
+    tenantId: "tenant-cargoclear",
     jobNumber: "CC-24022",
     mode: "Air",
     stage: "Confirmed",
@@ -167,6 +231,7 @@ export const shipments: Shipment[] = [
   },
   {
     id: "3",
+    tenantId: "tenant-atlas",
     jobNumber: "CC-23967",
     mode: "Ocean",
     stage: "In Transit",
@@ -181,6 +246,7 @@ export const shipments: Shipment[] = [
   },
   {
     id: "4",
+    tenantId: "tenant-cargoclear",
     jobNumber: "CC-23951",
     mode: "Ocean",
     stage: "Customs",
@@ -226,9 +292,38 @@ export const warehouseTasks: WarehouseTask[] = [
 ];
 
 export const customers: CustomerAccount[] = [
-  { name: "Northwind Imports", lane: "CN -> US", creditTerms: "45 days", quoteStage: "Won", openShipments: 14 },
-  { name: "BluePeak Pharma", lane: "DE -> US", creditTerms: "30 days", quoteStage: "Quoted", openShipments: 5 },
-  { name: "Frontier Auto Parts", lane: "KR -> US", creditTerms: "60 days", quoteStage: "Won", openShipments: 8 }
+  {
+    tenantId: "tenant-cargoclear",
+    name: "Northwind Imports",
+    lane: "CN -> US",
+    creditTerms: "45 days",
+    quoteStage: "Won",
+    openShipments: 14
+  },
+  {
+    tenantId: "tenant-cargoclear",
+    name: "BluePeak Pharma",
+    lane: "DE -> US",
+    creditTerms: "30 days",
+    quoteStage: "Quoted",
+    openShipments: 5
+  },
+  {
+    tenantId: "tenant-cargoclear",
+    name: "Frontier Auto Parts",
+    lane: "KR -> US",
+    creditTerms: "60 days",
+    quoteStage: "Won",
+    openShipments: 8
+  },
+  {
+    tenantId: "tenant-atlas",
+    name: "Atlas Retail Group",
+    lane: "SG -> US",
+    creditTerms: "30 days",
+    quoteStage: "Won",
+    openShipments: 3
+  }
 ];
 
 export const platformOverview: PlatformOverview = {
@@ -293,5 +388,36 @@ export const shipmentDocuments: ShipmentDocument[] = [
     uploadedBy: "D. Shah",
     updatedAt: "2026-03-22T19:45:00.000Z",
     source: "Generated"
+  }
+];
+
+export const tenants: TenantConfig[] = [
+  {
+    id: "tenant-cargoclear",
+    name: "CargoClear HQ",
+    domain: "hq.cargoclear.local",
+    branding: {
+      companyName: "CargoClear",
+      logoMode: "mark",
+      initials: "CC",
+      primaryColor: "#0f4fbf",
+      secondaryColor: "#16a4c9",
+      accentColor: "#0b1d3a"
+    },
+    enabledModules: ["dashboard", "shipments", "compliance", "finance", "warehouse", "customers", "platform"]
+  },
+  {
+    id: "tenant-atlas",
+    name: "Atlas NVO",
+    domain: "atlas.cargoclear.local",
+    branding: {
+      companyName: "Atlas NVO",
+      logoMode: "initials",
+      initials: "AN",
+      primaryColor: "#0a6c74",
+      secondaryColor: "#d98b2b",
+      accentColor: "#0f2431"
+    },
+    enabledModules: ["dashboard", "shipments", "customers"]
   }
 ];
