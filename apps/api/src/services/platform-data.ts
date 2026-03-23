@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   complianceQueue,
+  type CreateShipmentDocumentVersionInput,
   type CreateShipmentDocumentInput,
   type CreateShipmentInput,
   customers,
@@ -13,9 +14,12 @@ import {
   type ShipmentCostLine,
   type ShipmentDetail,
   type ShipmentDocument,
+  type ShipmentDocumentStatus,
   type Shipment,
   type ShipmentStage,
+  type UpdateShipmentDocumentInput,
   type UpdateShipmentInput,
+  type UserRole,
   warehouseTasks
 } from "../../../../packages/shared/src/index.js";
 
@@ -189,29 +193,41 @@ function buildFlags(shipment: Shipment) {
 }
 
 export function getShipmentDetail(id: string, tenantId: string) {
+  return getShipmentDetailForRole(id, tenantId, "System Admin");
+}
+
+export function getShipmentDetailForRole(id: string, tenantId: string, role: UserRole) {
   const shipment = getShipmentById(id, tenantId);
 
   if (!shipment) {
     return null;
   }
 
+  const visibleDocuments = documentStore
+    .filter((document) => document.shipmentId === id)
+    .filter((document) =>
+      role === "Customer" ? document.visibleToCustomer && (document.status === "Approved" || document.status === "Signed") : true
+    )
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+
   return {
     shipment,
     milestones: buildMilestones(shipment),
-    documents: documentStore
-      .filter((document) => document.shipmentId === id)
-      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)),
-    costLines: buildCostLines(shipment),
-    internalNotes: [
-      `${shipment.owner} owns operational execution for this job.`,
-      `${shipment.customer} requires milestone updates on booking confirmation and customs release.`,
-      "Document packet should be complete before customer portal exposure."
-    ],
+    documents: visibleDocuments,
+    costLines: role === "Customer" ? [] : buildCostLines(shipment),
+    internalNotes:
+      role === "Customer"
+        ? []
+        : [
+            `${shipment.owner} owns operational execution for this job.`,
+            `${shipment.customer} requires milestone updates on booking confirmation and customs release.`,
+            "Document packet should be complete before customer portal exposure."
+          ],
     externalNotes: [
       "Booking confirmed and movement plan shared with consignee.",
       "Customer portal can expose approved documents and current milestone state."
     ],
-    flags: buildFlags(shipment)
+    flags: role === "Customer" ? buildFlags(shipment).filter((flag) => !flag.includes("Low margin")) : buildFlags(shipment)
   } satisfies ShipmentDetail;
 }
 
@@ -284,12 +300,108 @@ export function addShipmentDocument(shipmentId: string, tenantId: string, input:
     status: "Ready",
     uploadedBy,
     updatedAt: new Date().toISOString(),
-    source: input.source
+    source: input.source,
+    currentVersion: 1,
+    visibleToCustomer: false,
+    versions: [
+      {
+        version: 1,
+        fileName: input.fileName,
+        updatedAt: new Date().toISOString(),
+        uploadedBy,
+        notes: "Initial issue created in CargoClear."
+      }
+    ]
   };
 
   documentStore.unshift(document);
   persistDocuments();
   return document;
+}
+
+function findDocument(documentId: string, shipmentId: string) {
+  return documentStore.find((document) => document.id === documentId && document.shipmentId === shipmentId) ?? null;
+}
+
+export function updateShipmentDocument(
+  shipmentId: string,
+  tenantId: string,
+  documentId: string,
+  input: UpdateShipmentDocumentInput
+) {
+  const shipment = getShipmentById(shipmentId, tenantId);
+
+  if (!shipment) {
+    return null;
+  }
+
+  const document = findDocument(documentId, shipmentId);
+
+  if (!document) {
+    return null;
+  }
+
+  if (typeof input.visibleToCustomer === "boolean") {
+    document.visibleToCustomer = input.visibleToCustomer;
+  }
+
+  if (input.status) {
+    document.status = input.status;
+  }
+
+  document.updatedAt = new Date().toISOString();
+  persistDocuments();
+  return document;
+}
+
+export function addShipmentDocumentVersion(
+  shipmentId: string,
+  tenantId: string,
+  documentId: string,
+  input: CreateShipmentDocumentVersionInput,
+  uploadedBy: string
+) {
+  const shipment = getShipmentById(shipmentId, tenantId);
+
+  if (!shipment) {
+    return null;
+  }
+
+  const document = findDocument(documentId, shipmentId);
+
+  if (!document) {
+    return null;
+  }
+
+  const nextVersion = document.currentVersion + 1;
+
+  document.currentVersion = nextVersion;
+  document.fileName = input.fileName;
+  document.uploadedBy = uploadedBy;
+  document.updatedAt = new Date().toISOString();
+  document.status = "Ready";
+  document.visibleToCustomer = false;
+  document.versions.unshift({
+    version: nextVersion,
+    fileName: input.fileName,
+    updatedAt: document.updatedAt,
+    uploadedBy,
+    notes: input.notes
+  });
+
+  persistDocuments();
+  return document;
+}
+
+export function getCustomerDocumentCount(tenantId: string) {
+  const tenantShipmentIds = new Set(shipmentsForTenant(tenantId).map((shipment) => shipment.id));
+
+  return documentStore.filter(
+    (document) =>
+      tenantShipmentIds.has(document.shipmentId) &&
+      document.visibleToCustomer &&
+      (document.status === "Approved" || document.status === "Signed")
+  ).length;
 }
 
 export function getComplianceQueue() {

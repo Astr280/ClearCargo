@@ -1,26 +1,32 @@
 import { Router } from "express";
 import {
+  addShipmentDocumentVersion,
   addShipmentDocument,
   createShipment,
   deleteShipment,
   getComplianceQueue,
   getCustomers,
+  getCustomerDocumentCount,
   getDashboardPayload,
   getFinanceSummary,
   getPlatformOverview,
   getShipmentById,
-  getShipmentDetail,
+  getShipmentDetailForRole,
   getShipments,
   getWarehouseTasks,
+  updateShipmentDocument,
   updateShipment,
   updateShipmentStage
 } from "../services/platform-data.js";
 import type {
+  CreateShipmentDocumentVersionInput,
   CreateShipmentDocumentInput,
   CreateShipmentInput,
   LoginRequest,
   ShipmentDocumentType,
+  ShipmentDocumentStatus,
   ShipmentStage,
+  UpdateShipmentDocumentInput,
   UpdateShipmentInput
 } from "../../../../packages/shared/src/index.js";
 import { requireRoles, requireSession } from "../middleware/auth.js";
@@ -36,6 +42,7 @@ const shipmentDocumentTypes: ShipmentDocumentType[] = [
   "Customs Entry",
   "Delivery Order"
 ];
+const shipmentDocumentStatuses: ShipmentDocumentStatus[] = ["Draft", "Ready", "Approved", "Signed"];
 
 function getRouteParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -101,7 +108,10 @@ router.post("/auth/logout", requireSession, (request, response) => {
 router.use(requireSession);
 
 router.get("/dashboard", (request, response) => {
-  response.json(getDashboardPayload(response.locals.session.user.tenantId));
+  response.json({
+    ...getDashboardPayload(response.locals.session.user.tenantId),
+    customerDocumentCount: getCustomerDocumentCount(response.locals.session.user.tenantId)
+  });
 });
 
 router.get("/shipments", (request, response) => {
@@ -122,7 +132,9 @@ router.get("/shipments/:id", (request, response) => {
 
 router.get("/shipments/:id/detail", (request, response) => {
   const shipmentId = getRouteParam(request.params.id);
-  const shipment = shipmentId ? getShipmentDetail(shipmentId, response.locals.session.user.tenantId) : null;
+  const shipment = shipmentId
+    ? getShipmentDetailForRole(shipmentId, response.locals.session.user.tenantId, response.locals.session.user.role)
+    : null;
 
   if (!shipment) {
     response.status(404).json({ message: "Shipment not found." });
@@ -235,6 +247,65 @@ router.post(
 
     if (!document) {
       response.status(404).json({ message: "Shipment not found." });
+      return;
+    }
+
+    response.status(201).json(document);
+  }
+);
+
+router.patch(
+  "/shipments/:id/documents/:documentId",
+  requireRoles(["Freight Coordinator", "Customs Broker", "Operations Manager", "System Admin"]),
+  (request, response) => {
+    const payload = request.body as Partial<UpdateShipmentDocumentInput>;
+    const shipmentId = getRouteParam(request.params.id);
+    const documentId = getRouteParam(request.params.documentId);
+
+    if (
+      !shipmentId ||
+      !documentId ||
+      (payload.status && !shipmentDocumentStatuses.includes(payload.status as ShipmentDocumentStatus)) ||
+      (typeof payload.visibleToCustomer !== "boolean" && !payload.status)
+    ) {
+      response.status(400).json({ message: "Invalid shipment document update payload." });
+      return;
+    }
+
+    const document = updateShipmentDocument(shipmentId, response.locals.session.user.tenantId, documentId, payload as UpdateShipmentDocumentInput);
+
+    if (!document) {
+      response.status(404).json({ message: "Document not found." });
+      return;
+    }
+
+    response.json(document);
+  }
+);
+
+router.post(
+  "/shipments/:id/documents/:documentId/versions",
+  requireRoles(["Freight Coordinator", "Customs Broker", "Operations Manager", "System Admin"]),
+  (request, response) => {
+    const payload = request.body as Partial<CreateShipmentDocumentVersionInput>;
+    const shipmentId = getRouteParam(request.params.id);
+    const documentId = getRouteParam(request.params.documentId);
+
+    if (!shipmentId || !documentId || !payload.fileName) {
+      response.status(400).json({ message: "Invalid document version payload." });
+      return;
+    }
+
+    const document = addShipmentDocumentVersion(
+      shipmentId,
+      response.locals.session.user.tenantId,
+      documentId,
+      payload as CreateShipmentDocumentVersionInput,
+      response.locals.session.user.name
+    );
+
+    if (!document) {
+      response.status(404).json({ message: "Document not found." });
       return;
     }
 

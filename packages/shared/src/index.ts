@@ -46,6 +46,14 @@ export type ShipmentDocumentType =
 
 export type ShipmentDocumentStatus = "Draft" | "Ready" | "Approved" | "Signed";
 
+export interface ShipmentDocumentVersion {
+  version: number;
+  fileName: string;
+  updatedAt: string;
+  uploadedBy: string;
+  notes?: string;
+}
+
 export interface ShipmentDocument {
   id: string;
   shipmentId: string;
@@ -55,6 +63,9 @@ export interface ShipmentDocument {
   uploadedBy: string;
   updatedAt: string;
   source: "Generated" | "Uploaded";
+  currentVersion: number;
+  visibleToCustomer: boolean;
+  versions: ShipmentDocumentVersion[];
 }
 
 export interface ShipmentMilestone {
@@ -87,6 +98,16 @@ export interface CreateShipmentDocumentInput {
   fileName: string;
   source: ShipmentDocument["source"];
   uploadedBy: string;
+}
+
+export interface UpdateShipmentDocumentInput {
+  status?: ShipmentDocumentStatus;
+  visibleToCustomer?: boolean;
+}
+
+export interface CreateShipmentDocumentVersionInput {
+  fileName: string;
+  notes?: string;
 }
 
 export type UserRole =
@@ -357,7 +378,25 @@ export const shipmentDocuments: ShipmentDocument[] = [
     status: "Approved",
     uploadedBy: "A. Mehta",
     updatedAt: "2026-03-21T09:15:00.000Z",
-    source: "Generated"
+    source: "Generated",
+    currentVersion: 2,
+    visibleToCustomer: true,
+    versions: [
+      {
+        version: 1,
+        fileName: "CC-24018-commercial-invoice-v1.pdf",
+        updatedAt: "2026-03-20T11:10:00.000Z",
+        uploadedBy: "A. Mehta",
+        notes: "Initial draft from shipment cost sheet."
+      },
+      {
+        version: 2,
+        fileName: "CC-24018-commercial-invoice.pdf",
+        updatedAt: "2026-03-21T09:15:00.000Z",
+        uploadedBy: "A. Mehta",
+        notes: "Approved customer-facing issue."
+      }
+    ]
   },
   {
     id: "DOC-1002",
@@ -367,7 +406,18 @@ export const shipmentDocuments: ShipmentDocument[] = [
     status: "Ready",
     uploadedBy: "A. Mehta",
     updatedAt: "2026-03-21T09:18:00.000Z",
-    source: "Generated"
+    source: "Generated",
+    currentVersion: 1,
+    visibleToCustomer: false,
+    versions: [
+      {
+        version: 1,
+        fileName: "CC-24018-packing-list.pdf",
+        updatedAt: "2026-03-21T09:18:00.000Z",
+        uploadedBy: "A. Mehta",
+        notes: "Pending review before portal exposure."
+      }
+    ]
   },
   {
     id: "DOC-1003",
@@ -377,7 +427,32 @@ export const shipmentDocuments: ShipmentDocument[] = [
     status: "Approved",
     uploadedBy: "J. Patel",
     updatedAt: "2026-03-22T05:20:00.000Z",
-    source: "Generated"
+    source: "Generated",
+    currentVersion: 3,
+    visibleToCustomer: true,
+    versions: [
+      {
+        version: 1,
+        fileName: "CC-24022-eawb-draft.pdf",
+        updatedAt: "2026-03-21T23:10:00.000Z",
+        uploadedBy: "J. Patel",
+        notes: "Initial airway bill draft."
+      },
+      {
+        version: 2,
+        fileName: "CC-24022-eawb-review.pdf",
+        updatedAt: "2026-03-22T03:00:00.000Z",
+        uploadedBy: "J. Patel",
+        notes: "Carrier corrections applied."
+      },
+      {
+        version: 3,
+        fileName: "CC-24022-eawb.pdf",
+        updatedAt: "2026-03-22T05:20:00.000Z",
+        uploadedBy: "J. Patel",
+        notes: "Approved final issue."
+      }
+    ]
   },
   {
     id: "DOC-1004",
@@ -387,7 +462,18 @@ export const shipmentDocuments: ShipmentDocument[] = [
     status: "Draft",
     uploadedBy: "D. Shah",
     updatedAt: "2026-03-22T19:45:00.000Z",
-    source: "Generated"
+    source: "Generated",
+    currentVersion: 1,
+    visibleToCustomer: false,
+    versions: [
+      {
+        version: 1,
+        fileName: "CC-23951-cbp-7501.pdf",
+        updatedAt: "2026-03-22T19:45:00.000Z",
+        uploadedBy: "D. Shah",
+        notes: "Draft filing package awaiting broker review."
+      }
+    ]
   }
 ];
 
