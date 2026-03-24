@@ -144,6 +144,7 @@ export interface AppUser {
   name: string;
   email: string;
   role: UserRole;
+  customerName?: string;
 }
 
 export interface AuthSession {
@@ -188,6 +189,29 @@ export interface FinanceSummary {
   receivables: DashboardMetric[];
   payables: DashboardMetric[];
   marginAlerts: Array<{ jobNumber: string; message: string }>;
+}
+
+export type InvoiceStatus = "Draft" | "Issued" | "Partially Paid" | "Paid" | "Overdue";
+
+export interface InvoiceLineItem {
+  code: string;
+  description: string;
+  amount: number;
+}
+
+export interface InvoiceRecord {
+  id: string;
+  tenantId: string;
+  shipmentId: string;
+  invoiceNumber: string;
+  customerName: string;
+  currency: "USD" | "EUR" | "GBP" | "CNY" | "AUD";
+  status: InvoiceStatus;
+  dueDate: string;
+  issuedAt: string;
+  paidAmount: number;
+  totalAmount: number;
+  lineItems: InvoiceLineItem[];
 }
 
 export interface WarehouseTask {
@@ -505,5 +529,62 @@ export const tenants: TenantConfig[] = [
       accentColor: "#0f2431"
     },
     enabledModules: ["dashboard", "shipments", "customers"]
+  }
+];
+
+export const invoices: InvoiceRecord[] = [
+  {
+    id: "INV-1",
+    tenantId: "tenant-cargoclear",
+    shipmentId: "1",
+    invoiceNumber: "AR-24018",
+    customerName: "Northwind Imports",
+    currency: "USD",
+    status: "Issued",
+    dueDate: "2026-04-02T00:00:00.000Z",
+    issuedAt: "2026-03-23T08:00:00.000Z",
+    paidAmount: 0,
+    totalAmount: 11450,
+    lineItems: [
+      { code: "FRT", description: "Ocean freight", amount: 8400 },
+      { code: "CUS", description: "Customs brokerage", amount: 780 },
+      { code: "HDL", description: "Handling and docs", amount: 2270 }
+    ]
+  },
+  {
+    id: "INV-2",
+    tenantId: "tenant-cargoclear",
+    shipmentId: "2",
+    invoiceNumber: "AR-24022",
+    customerName: "BluePeak Pharma",
+    currency: "USD",
+    status: "Partially Paid",
+    dueDate: "2026-03-29T00:00:00.000Z",
+    issuedAt: "2026-03-20T14:00:00.000Z",
+    paidAmount: 4200,
+    totalAmount: 6900,
+    lineItems: [
+      { code: "FRT", description: "Air freight", amount: 5100 },
+      { code: "DGD", description: "DG handling", amount: 950 },
+      { code: "DOC", description: "Documentation", amount: 850 }
+    ]
+  },
+  {
+    id: "INV-3",
+    tenantId: "tenant-atlas",
+    shipmentId: "3",
+    invoiceNumber: "AR-23967",
+    customerName: "Atlas Retail Group",
+    currency: "USD",
+    status: "Overdue",
+    dueDate: "2026-03-15T00:00:00.000Z",
+    issuedAt: "2026-03-01T09:00:00.000Z",
+    paidAmount: 0,
+    totalAmount: 12880,
+    lineItems: [
+      { code: "FRT", description: "Ocean freight", amount: 9950 },
+      { code: "THC", description: "Terminal handling", amount: 1640 },
+      { code: "DOC", description: "Documentation", amount: 1290 }
+    ]
   }
 ];

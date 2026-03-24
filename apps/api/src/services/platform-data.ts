@@ -8,13 +8,15 @@ import {
   type CreateShipmentInput,
   customers,
   financeSummary,
+  invoices,
   platformOverview,
   shipments,
   shipmentDocuments,
+  type FinanceSummary,
+  type InvoiceRecord,
   type ShipmentCostLine,
   type ShipmentDetail,
   type ShipmentDocument,
-  type ShipmentDocumentStatus,
   type Shipment,
   type ShipmentStage,
   type UpdateShipmentDocumentInput,
@@ -32,6 +34,7 @@ const shipmentDataCandidates = [
 const shipmentDataPath =
   shipmentDataCandidates.find((candidate) => fs.existsSync(path.dirname(candidate))) ?? shipmentDataCandidates[0];
 const seededShipments: Shipment[] = structuredClone(shipments);
+
 const documentDataCandidates = [
   path.resolve(process.cwd(), "data/shipment-documents.json"),
   path.resolve(currentDir, "../../../../data/shipment-documents.json"),
@@ -40,6 +43,15 @@ const documentDataCandidates = [
 const documentDataPath =
   documentDataCandidates.find((candidate) => fs.existsSync(path.dirname(candidate))) ?? documentDataCandidates[0];
 const seededDocuments: ShipmentDocument[] = structuredClone(shipmentDocuments);
+
+const invoiceDataCandidates = [
+  path.resolve(process.cwd(), "data/invoices.json"),
+  path.resolve(currentDir, "../../../../data/invoices.json"),
+  path.resolve(currentDir, "../../../../../../data/invoices.json")
+];
+const invoiceDataPath =
+  invoiceDataCandidates.find((candidate) => fs.existsSync(path.dirname(candidate))) ?? invoiceDataCandidates[0];
+const seededInvoices: InvoiceRecord[] = structuredClone(invoices);
 
 function loadShipmentStore() {
   if (!fs.existsSync(shipmentDataPath)) {
@@ -69,12 +81,23 @@ function persistDocuments() {
   fs.writeFileSync(documentDataPath, JSON.stringify(documentStore, null, 2));
 }
 
+function loadInvoiceStore() {
+  if (!fs.existsSync(invoiceDataPath)) {
+    fs.writeFileSync(invoiceDataPath, JSON.stringify(seededInvoices, null, 2));
+    return structuredClone(seededInvoices);
+  }
+
+  const raw = fs.readFileSync(invoiceDataPath, "utf-8");
+  return JSON.parse(raw) as InvoiceRecord[];
+}
+
+function persistInvoices() {
+  fs.writeFileSync(invoiceDataPath, JSON.stringify(invoiceStore, null, 2));
+}
+
 const shipmentStore: Shipment[] = loadShipmentStore();
 const documentStore: ShipmentDocument[] = loadDocumentStore();
-
-function shipmentsForTenant(tenantId: string) {
-  return shipmentStore.filter((shipment) => shipment.tenantId === tenantId);
-}
+const invoiceStore: InvoiceRecord[] = loadInvoiceStore();
 
 function nextShipmentSequence() {
   return shipmentStore.reduce((highest, shipment) => {
@@ -83,22 +106,56 @@ function nextShipmentSequence() {
   }, 24022) + 1;
 }
 
-export function getDashboardPayload(tenantId: string) {
-  const tenantShipments = shipmentsForTenant(tenantId);
-  const deliveredCount = tenantShipments.filter((shipment) => shipment.stage === "Delivered" || shipment.stage === "Closed").length;
+function shipmentMatchesScope(shipment: Shipment, tenantId: string, role?: UserRole, customerName?: string) {
+  if (shipment.tenantId !== tenantId) {
+    return false;
+  }
+
+  if (role === "Customer" && customerName) {
+    return shipment.customer === customerName;
+  }
+
+  return true;
+}
+
+function invoiceMatchesScope(invoice: InvoiceRecord, tenantId: string, role?: UserRole, customerName?: string) {
+  if (invoice.tenantId !== tenantId) {
+    return false;
+  }
+
+  if (role === "Customer" && customerName) {
+    return invoice.customerName === customerName;
+  }
+
+  return true;
+}
+
+function shipmentsForScope(tenantId: string, role?: UserRole, customerName?: string) {
+  return shipmentStore.filter((shipment) => shipmentMatchesScope(shipment, tenantId, role, customerName));
+}
+
+function invoicesForScope(tenantId: string, role?: UserRole, customerName?: string) {
+  return invoiceStore.filter((invoice) => invoiceMatchesScope(invoice, tenantId, role, customerName));
+}
+
+export function getDashboardPayload(tenantId: string, role?: UserRole, customerName?: string) {
+  const scopedShipments = shipmentsForScope(tenantId, role, customerName);
+  const scopedInvoices = invoicesForScope(tenantId, role, customerName);
+  const deliveredCount = scopedShipments.filter((shipment) => shipment.stage === "Delivered" || shipment.stage === "Closed").length;
   const docsGenerated = documentStore.filter((document) =>
-    tenantShipments.some((shipment) => shipment.id === document.shipmentId)
+    scopedShipments.some((shipment) => shipment.id === document.shipmentId)
   ).length;
-  const averageMargin = tenantShipments.length
-    ? tenantShipments.reduce((sum, shipment) => sum + shipment.marginPercent, 0) / tenantShipments.length
+  const averageMargin = scopedShipments.length
+    ? scopedShipments.reduce((sum, shipment) => sum + shipment.marginPercent, 0) / scopedShipments.length
     : 0;
+  const outstanding = scopedInvoices.reduce((sum, invoice) => sum + (invoice.totalAmount - invoice.paidAmount), 0);
 
   return {
     metrics: [
       {
-        label: "Open Shipments",
-        value: tenantShipments.length.toLocaleString(),
-        trend: `${tenantShipments.filter((shipment) => shipment.stage !== "Closed").length} active jobs in execution`
+        label: role === "Customer" ? "Your Shipments" : "Open Shipments",
+        value: scopedShipments.length.toLocaleString(),
+        trend: `${scopedShipments.filter((shipment) => shipment.stage !== "Closed").length} active jobs in execution`
       },
       {
         label: "Docs Generated",
@@ -106,27 +163,32 @@ export function getDashboardPayload(tenantId: string) {
         trend: `${Math.max(docsGenerated * 12, 24)} files projected at scale`
       },
       {
-        label: "Delivered",
-        value: deliveredCount.toLocaleString(),
-        trend: `${Math.max(tenantShipments.length - deliveredCount, 0)} jobs still moving through the pipeline`
+        label: role === "Customer" ? "Outstanding Invoices" : "Delivered",
+        value: role === "Customer" ? `$${outstanding.toLocaleString()}` : deliveredCount.toLocaleString(),
+        trend:
+          role === "Customer"
+            ? `${scopedInvoices.filter((invoice) => invoice.status !== "Paid").length} invoices awaiting payment`
+            : `${Math.max(scopedShipments.length - deliveredCount, 0)} jobs still moving through the pipeline`
       },
       {
-        label: "Avg GP",
-        value: `${averageMargin.toFixed(1)}%`,
-        trend: "Tenant-scoped shipment profitability"
+        label: role === "Customer" ? "Approved Docs" : "Avg GP",
+        value: role === "Customer" ? String(getCustomerDocumentCount(tenantId, role, customerName)) : `${averageMargin.toFixed(1)}%`,
+        trend: role === "Customer" ? "Visible in your customer portal" : "Tenant-scoped shipment profitability"
       }
     ],
-    recentShipments: tenantShipments.slice(0, 4),
+    recentShipments: scopedShipments.slice(0, 4),
     platform: platformOverview.architecture
   };
 }
 
-export function getShipments(tenantId: string) {
-  return shipmentsForTenant(tenantId);
+export function getShipments(tenantId: string, role?: UserRole, customerName?: string) {
+  return shipmentsForScope(tenantId, role, customerName);
 }
 
-export function getShipmentById(id: string, tenantId: string) {
-  return shipmentStore.find((item) => item.id === id && item.tenantId === tenantId) ?? null;
+export function getShipmentById(id: string, tenantId: string, role?: UserRole, customerName?: string) {
+  return shipmentStore.find(
+    (shipment) => shipment.id === id && shipmentMatchesScope(shipment, tenantId, role, customerName)
+  ) ?? null;
 }
 
 function buildMilestones(shipment: Shipment) {
@@ -192,12 +254,8 @@ function buildFlags(shipment: Shipment) {
   return flags;
 }
 
-export function getShipmentDetail(id: string, tenantId: string) {
-  return getShipmentDetailForRole(id, tenantId, "System Admin");
-}
-
-export function getShipmentDetailForRole(id: string, tenantId: string, role: UserRole) {
-  const shipment = getShipmentById(id, tenantId);
+export function getShipmentDetailForRole(id: string, tenantId: string, role: UserRole, customerName?: string) {
+  const shipment = getShipmentById(id, tenantId, role, customerName);
 
   if (!shipment) {
     return null;
@@ -278,10 +336,19 @@ export function deleteShipment(id: string, tenantId: string) {
   }
 
   const [deleted] = shipmentStore.splice(index, 1);
-  const relatedDocuments = documentStore.filter((document) => document.shipmentId !== id);
-  documentStore.splice(0, documentStore.length, ...relatedDocuments);
+  documentStore.splice(
+    0,
+    documentStore.length,
+    ...documentStore.filter((document) => document.shipmentId !== id)
+  );
+  invoiceStore.splice(
+    0,
+    invoiceStore.length,
+    ...invoiceStore.filter((invoice) => invoice.shipmentId !== id)
+  );
   persistShipments();
   persistDocuments();
+  persistInvoices();
   return deleted;
 }
 
@@ -292,6 +359,7 @@ export function addShipmentDocument(shipmentId: string, tenantId: string, input:
     return null;
   }
 
+  const now = new Date().toISOString();
   const document: ShipmentDocument = {
     id: `DOC-${Date.now()}`,
     shipmentId,
@@ -299,7 +367,7 @@ export function addShipmentDocument(shipmentId: string, tenantId: string, input:
     fileName: input.fileName,
     status: "Ready",
     uploadedBy,
-    updatedAt: new Date().toISOString(),
+    updatedAt: now,
     source: input.source,
     currentVersion: 1,
     visibleToCustomer: false,
@@ -307,7 +375,7 @@ export function addShipmentDocument(shipmentId: string, tenantId: string, input:
       {
         version: 1,
         fileName: input.fileName,
-        updatedAt: new Date().toISOString(),
+        updatedAt: now,
         uploadedBy,
         notes: "Initial issue created in CargoClear."
       }
@@ -374,17 +442,18 @@ export function addShipmentDocumentVersion(
   }
 
   const nextVersion = document.currentVersion + 1;
+  const now = new Date().toISOString();
 
   document.currentVersion = nextVersion;
   document.fileName = input.fileName;
   document.uploadedBy = uploadedBy;
-  document.updatedAt = new Date().toISOString();
+  document.updatedAt = now;
   document.status = "Ready";
   document.visibleToCustomer = false;
   document.versions.unshift({
     version: nextVersion,
     fileName: input.fileName,
-    updatedAt: document.updatedAt,
+    updatedAt: now,
     uploadedBy,
     notes: input.notes
   });
@@ -393,31 +462,90 @@ export function addShipmentDocumentVersion(
   return document;
 }
 
-export function getCustomerDocumentCount(tenantId: string) {
-  const tenantShipmentIds = new Set(shipmentsForTenant(tenantId).map((shipment) => shipment.id));
+export function getCustomerDocumentCount(tenantId: string, role?: UserRole, customerName?: string) {
+  const scopedShipmentIds = new Set(shipmentsForScope(tenantId, role, customerName).map((shipment) => shipment.id));
 
   return documentStore.filter(
     (document) =>
-      tenantShipmentIds.has(document.shipmentId) &&
+      scopedShipmentIds.has(document.shipmentId) &&
       document.visibleToCustomer &&
       (document.status === "Approved" || document.status === "Signed")
   ).length;
+}
+
+export function getInvoices(tenantId: string, role?: UserRole, customerName?: string) {
+  return invoicesForScope(tenantId, role, customerName).sort((left, right) => right.issuedAt.localeCompare(left.issuedAt));
+}
+
+export function recordInvoicePayment(id: string, tenantId: string, amount: number, role?: UserRole, customerName?: string) {
+  const invoice = invoiceStore.find((item) => item.id === id && invoiceMatchesScope(item, tenantId, role, customerName));
+
+  if (!invoice) {
+    return null;
+  }
+
+  invoice.paidAmount = Math.min(invoice.totalAmount, invoice.paidAmount + amount);
+
+  if (invoice.paidAmount <= 0) {
+    invoice.status = "Issued";
+  } else if (invoice.paidAmount >= invoice.totalAmount) {
+    invoice.status = "Paid";
+  } else {
+    invoice.status = "Partially Paid";
+  }
+
+  persistInvoices();
+  return invoice;
+}
+
+export function getFinanceSummaryForScope(tenantId: string, role?: UserRole, customerName?: string): FinanceSummary {
+  const scopedInvoices = invoicesForScope(tenantId, role, customerName);
+  const outstanding = scopedInvoices.reduce((sum, invoice) => sum + (invoice.totalAmount - invoice.paidAmount), 0);
+  const partialCount = scopedInvoices.filter((invoice) => invoice.status === "Partially Paid").length;
+  const overdueCount = scopedInvoices.filter((invoice) => invoice.status === "Overdue").length;
+
+  if (role === "Customer") {
+    return {
+      receivables: [
+        { label: "Open balance", value: `$${outstanding.toLocaleString()}`, trend: `${scopedInvoices.length} customer invoices in your portal` },
+        { label: "Partially paid", value: String(partialCount), trend: "Invoices with partial settlement recorded" },
+        { label: "Overdue", value: String(overdueCount), trend: "Invoices beyond due date requiring action" }
+      ],
+      payables: [],
+      marginAlerts: []
+    };
+  }
+
+  return {
+    ...financeSummary,
+    receivables: [
+      { label: "Outstanding AR", value: `$${outstanding.toLocaleString()}`, trend: `${scopedInvoices.filter((invoice) => invoice.status !== "Paid").length} invoices open` },
+      { label: "Partially Paid", value: String(partialCount), trend: "Customer settlements in progress" },
+      { label: "Overdue", value: String(overdueCount), trend: "Collections follow-up active" }
+    ]
+  };
 }
 
 export function getComplianceQueue() {
   return complianceQueue;
 }
 
-export function getFinanceSummary() {
-  return financeSummary;
-}
-
 export function getWarehouseTasks() {
   return warehouseTasks;
 }
 
-export function getCustomers(tenantId: string) {
-  return customers.filter((customer) => customer.tenantId === tenantId);
+export function getCustomers(tenantId: string, role?: UserRole, customerName?: string) {
+  return customers.filter((customer) => {
+    if (customer.tenantId !== tenantId) {
+      return false;
+    }
+
+    if (role === "Customer" && customerName) {
+      return customer.name === customerName;
+    }
+
+    return true;
+  });
 }
 
 export function getPlatformOverview() {

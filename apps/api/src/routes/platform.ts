@@ -8,12 +8,14 @@ import {
   getCustomers,
   getCustomerDocumentCount,
   getDashboardPayload,
-  getFinanceSummary,
+  getFinanceSummaryForScope,
+  getInvoices,
   getPlatformOverview,
   getShipmentById,
   getShipmentDetailForRole,
   getShipments,
   getWarehouseTasks,
+  recordInvoicePayment,
   updateShipmentDocument,
   updateShipment,
   updateShipmentStage
@@ -22,6 +24,7 @@ import type {
   CreateShipmentDocumentVersionInput,
   CreateShipmentDocumentInput,
   CreateShipmentInput,
+  InvoiceRecord,
   LoginRequest,
   ShipmentDocumentType,
   ShipmentDocumentStatus,
@@ -109,18 +112,39 @@ router.use(requireSession);
 
 router.get("/dashboard", (request, response) => {
   response.json({
-    ...getDashboardPayload(response.locals.session.user.tenantId),
-    customerDocumentCount: getCustomerDocumentCount(response.locals.session.user.tenantId)
+    ...getDashboardPayload(
+      response.locals.session.user.tenantId,
+      response.locals.session.user.role,
+      response.locals.session.user.customerName
+    ),
+    customerDocumentCount: getCustomerDocumentCount(
+      response.locals.session.user.tenantId,
+      response.locals.session.user.role,
+      response.locals.session.user.customerName
+    )
   });
 });
 
 router.get("/shipments", (request, response) => {
-  response.json(getShipments(response.locals.session.user.tenantId));
+  response.json(
+    getShipments(
+      response.locals.session.user.tenantId,
+      response.locals.session.user.role,
+      response.locals.session.user.customerName
+    )
+  );
 });
 
 router.get("/shipments/:id", (request, response) => {
   const shipmentId = getRouteParam(request.params.id);
-  const shipment = shipmentId ? getShipmentById(shipmentId, response.locals.session.user.tenantId) : null;
+  const shipment = shipmentId
+    ? getShipmentById(
+        shipmentId,
+        response.locals.session.user.tenantId,
+        response.locals.session.user.role,
+        response.locals.session.user.customerName
+      )
+    : null;
 
   if (!shipment) {
     response.status(404).json({ message: "Shipment not found." });
@@ -133,7 +157,12 @@ router.get("/shipments/:id", (request, response) => {
 router.get("/shipments/:id/detail", (request, response) => {
   const shipmentId = getRouteParam(request.params.id);
   const shipment = shipmentId
-    ? getShipmentDetailForRole(shipmentId, response.locals.session.user.tenantId, response.locals.session.user.role)
+    ? getShipmentDetailForRole(
+        shipmentId,
+        response.locals.session.user.tenantId,
+        response.locals.session.user.role,
+        response.locals.session.user.customerName
+      )
     : null;
 
   if (!shipment) {
@@ -333,17 +362,80 @@ router.get("/compliance/queue", requireRoles(["Customs Broker", "Operations Mana
   response.json(getComplianceQueue());
 });
 
-router.get("/finance/summary", requireRoles(["Finance / Billing", "Operations Manager", "System Admin"]), (_request, response) => {
-  response.json(getFinanceSummary());
-});
+router.get(
+  "/finance/summary",
+  requireRoles(["Finance / Billing", "Operations Manager", "System Admin", "Customer"]),
+  (_request, response) => {
+    response.json(
+      getFinanceSummaryForScope(
+        response.locals.session.user.tenantId,
+        response.locals.session.user.role,
+        response.locals.session.user.customerName
+      )
+    );
+  }
+);
+
+router.get(
+  "/finance/invoices",
+  requireRoles(["Finance / Billing", "Operations Manager", "System Admin", "Customer"]),
+  (_request, response) => {
+    response.json(
+      getInvoices(
+        response.locals.session.user.tenantId,
+        response.locals.session.user.role,
+        response.locals.session.user.customerName
+      )
+    );
+  }
+);
+
+router.post(
+  "/finance/invoices/:id/payments",
+  requireRoles(["Finance / Billing", "Operations Manager", "System Admin", "Customer"]),
+  (request, response) => {
+    const invoiceId = getRouteParam(request.params.id);
+    const amount = Number(request.body?.amount);
+
+    if (!invoiceId || !Number.isFinite(amount) || amount <= 0) {
+      response.status(400).json({ message: "Invalid payment payload." });
+      return;
+    }
+
+    const invoice = recordInvoicePayment(
+      invoiceId,
+      response.locals.session.user.tenantId,
+      amount,
+      response.locals.session.user.role,
+      response.locals.session.user.customerName
+    );
+
+    if (!invoice) {
+      response.status(404).json({ message: "Invoice not found." });
+      return;
+    }
+
+    response.json(invoice satisfies InvoiceRecord);
+  }
+);
 
 router.get("/warehouse/tasks", requireRoles(["Warehouse Manager", "Operations Manager", "System Admin"]), (_request, response) => {
   response.json(getWarehouseTasks());
 });
 
-router.get("/customers", requireRoles(["Freight Coordinator", "Operations Manager", "System Admin", "Customer"]), (_request, response) => {
-  response.json(getCustomers(response.locals.session.user.tenantId));
-});
+router.get(
+  "/customers",
+  requireRoles(["Freight Coordinator", "Operations Manager", "System Admin", "Customer"]),
+  (_request, response) => {
+    response.json(
+      getCustomers(
+        response.locals.session.user.tenantId,
+        response.locals.session.user.role,
+        response.locals.session.user.customerName
+      )
+    );
+  }
+);
 
 router.get("/platform/overview", requireRoles(["System Admin"]), (_request, response) => {
   response.json(getPlatformOverview());

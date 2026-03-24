@@ -68,6 +68,7 @@ const seedUsers: SeedUser[] = [
     name: "Northwind Portal",
     email: "portal@atlas.demo",
     role: "Customer",
+    customerName: "Atlas Retail Group",
     password: "CargoClear!2026",
     mfaCode: "123456"
   }
