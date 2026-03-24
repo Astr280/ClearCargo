@@ -16,11 +16,11 @@ function createCargoTheme(primaryColor = "#0f4fbf", secondaryColor = "#16a4c9", 
       warning: { main: "#d88a1d" },
       error: { main: "#d14e48" },
       background: {
-        default: "#eef4fb",
+        default: "#eef3f8",
         paper: "#ffffff"
       }
     },
-    shape: { borderRadius: 20 },
+    shape: { borderRadius: 4 },
     typography: {
       fontFamily: "'Bahnschrift', 'Trebuchet MS', 'Segoe UI', sans-serif",
       h3: { fontWeight: 700, letterSpacing: "-0.04em" },
@@ -33,10 +33,7 @@ function createCargoTheme(primaryColor = "#0f4fbf", secondaryColor = "#16a4c9", 
       MuiCssBaseline: {
         styleOverrides: {
           body: {
-            background: `radial-gradient(circle at top left, ${alpha(secondaryColor, 0.16)}, transparent 28%), radial-gradient(circle at 88% 8%, ${alpha(
-              primaryColor,
-              0.16
-            )}, transparent 24%), linear-gradient(180deg, #f6faff 0%, #eef4fb 52%, #e4eef8 100%)`,
+            background: `linear-gradient(180deg, #f7fafe 0%, ${alpha(primaryColor, 0.045)} 100%)`,
             minHeight: "100vh",
             color: accentColor
           }
@@ -53,25 +50,34 @@ function createCargoTheme(primaryColor = "#0f4fbf", secondaryColor = "#16a4c9", 
         styleOverrides: {
           root: {
             border: `1px solid ${alpha(primaryColor, 0.08)}`,
-            boxShadow: `0 22px 50px ${alpha(accentColor, 0.08)}`
+            boxShadow: `0 10px 24px ${alpha(accentColor, 0.06)}`
           }
         }
       },
       MuiButton: {
         styleOverrides: {
           root: {
-            borderRadius: 999
+            borderRadius: 10
           },
           containedPrimary: {
             background: `linear-gradient(135deg, ${secondaryColor} 0%, ${primaryColor} 100%)`,
-            boxShadow: `0 18px 34px ${alpha(primaryColor, 0.24)}`
+            boxShadow: `0 10px 22px ${alpha(primaryColor, 0.18)}`
           }
         }
       },
       MuiChip: {
         styleOverrides: {
           root: {
-            borderRadius: 999
+            borderRadius: 10,
+            height: 30,
+            fontWeight: 600
+          }
+        }
+      },
+      MuiOutlinedInput: {
+        styleOverrides: {
+          root: {
+            borderRadius: 10
           }
         }
       },

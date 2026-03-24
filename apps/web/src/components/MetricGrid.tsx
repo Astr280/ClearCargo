@@ -8,20 +8,19 @@ interface MetricGridProps {
 
 export default function MetricGrid({ items }: MetricGridProps) {
   return (
-    <Grid container spacing={2.25}>
+    <Grid container spacing={2}>
       {items.map((item) => (
         <Grid key={item.label} size={{ xs: 12, md: 6, xl: 3 }}>
           <Card
             sx={{
-              borderRadius: 6,
+              borderRadius: "16px",
               height: "100%",
-              background:
-                "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(244,249,255,0.9) 100%)"
+              background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(247,250,255,0.96) 100%)"
             }}
           >
-            <CardContent>
+            <CardContent sx={{ px: 3, py: 2.5 }}>
               <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2 }}>
-                <Typography variant="overline" color="text.secondary">
+                <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
                   {item.label}
                 </Typography>
                 <TrendingUpRoundedIcon sx={{ color: "secondary.main", fontSize: 20 }} />

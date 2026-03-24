@@ -66,10 +66,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
             width: drawerWidth,
             boxSizing: "border-box",
             borderRight: "1px solid rgba(255,255,255,0.06)",
-            background: `radial-gradient(circle at top left, ${alpha(branding.secondaryColor, 0.26)}, transparent 24%), linear-gradient(180deg, ${branding.accentColor} 0%, ${alpha(
-              branding.primaryColor,
-              0.88
-            )} 62%, ${alpha(branding.secondaryColor, 0.72)} 100%)`,
+            background: `linear-gradient(180deg, ${branding.accentColor} 0%, ${alpha(branding.primaryColor, 0.92)} 68%, ${alpha(branding.secondaryColor, 0.78)} 100%)`,
             color: "#fff"
           }
         }}
@@ -81,10 +78,10 @@ export default function AppLayout({ children }: PropsWithChildren) {
                 component="img"
                 src="/cargoclear-mark.svg"
                 alt={branding.companyName}
-                sx={{ width: 58, height: 58, borderRadius: 4, bgcolor: "#fff", p: 0.5 }}
+                sx={{ width: 56, height: 56, borderRadius: "12px", bgcolor: "#fff", p: 0.5 }}
               />
             ) : (
-              <Avatar sx={{ width: 58, height: 58, bgcolor: "#fff", color: branding.primaryColor, fontWeight: 700 }}>
+              <Avatar sx={{ width: 56, height: 56, bgcolor: "#fff", color: branding.primaryColor, fontWeight: 700 }}>
                 {branding.initials}
               </Avatar>
             )}
@@ -99,18 +96,18 @@ export default function AppLayout({ children }: PropsWithChildren) {
           <Box
             sx={{
               mb: 2.5,
-              p: 2,
-              borderRadius: 5,
-              background: "linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03))",
-              border: "1px solid rgba(255,255,255,0.08)"
+              p: 2.25,
+              borderRadius: "16px",
+              background: "linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.05))",
+              border: "1px solid rgba(255,255,255,0.10)"
             }}
           >
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
               <FlashOnOutlinedIcon sx={{ fontSize: 18, color: "#dcefff" }} />
               <Typography variant="subtitle2">Access profile</Typography>
             </Stack>
-            <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.78)", lineHeight: 1.7 }}>
-              Signed in as {session.user.role}. Module access and branding are now controlled by tenant configuration and role policy.
+            <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.80)", lineHeight: 1.75 }}>
+              Signed in as {session.user.role}. Module access and branding are controlled by tenant configuration and role policy.
             </Typography>
             <Stack direction="row" spacing={1} sx={{ mt: 1.5 }} useFlexGap flexWrap="wrap">
               <Chip size="small" label={session.user.role} sx={{ bgcolor: "rgba(255,255,255,0.14)", color: "#fff" }} />
@@ -122,12 +119,9 @@ export default function AppLayout({ children }: PropsWithChildren) {
             </Stack>
           </Box>
 
-          <List sx={{ display: "grid", gap: 1 }}>
+          <List sx={{ display: "grid", gap: 0.75 }}>
             {visibleNavItems.map((item) => {
-              const selected =
-                item.to === "/shipments"
-                  ? location.pathname.startsWith("/shipments")
-                  : location.pathname === item.to;
+              const selected = item.to === "/shipments" ? location.pathname.startsWith("/shipments") : location.pathname === item.to;
 
               return (
                 <ListItemButton
@@ -136,15 +130,15 @@ export default function AppLayout({ children }: PropsWithChildren) {
                   to={item.to}
                   selected={selected}
                   sx={{
-                    borderRadius: 4,
+                    borderRadius: "12px",
                     color: "#fff",
-                    px: 1.25,
-                    py: 0.75,
+                    px: 1.5,
+                    py: 1,
                     "&:hover": {
                       background: "rgba(255,255,255,0.08)"
                     },
                     "&.Mui-selected": {
-                      background: "linear-gradient(135deg, rgba(255,255,255,0.16), rgba(255,255,255,0.08))"
+                      background: "rgba(255,255,255,0.16)"
                     }
                   }}
                 >
@@ -158,8 +152,8 @@ export default function AppLayout({ children }: PropsWithChildren) {
           <Box
             sx={{
               mt: "auto",
-              p: 2,
-              borderRadius: 5,
+              p: 2.25,
+              borderRadius: "16px",
               background: "rgba(255,255,255,0.06)",
               border: "1px solid rgba(255,255,255,0.08)"
             }}
@@ -170,8 +164,8 @@ export default function AppLayout({ children }: PropsWithChildren) {
             <Typography variant="h6" sx={{ mt: 0.5 }}>
               White-label ready
             </Typography>
-            <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.74)", mt: 0.75, lineHeight: 1.7 }}>
-              Branding, feature flags, and role access now change by tenant without altering the app shell.
+            <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.76)", mt: 0.75, lineHeight: 1.7 }}>
+              Branding, feature flags, and role access now change by tenant without altering the core product shell.
             </Typography>
           </Box>
         </Box>
@@ -182,7 +176,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
           position="sticky"
           elevation={0}
           sx={{
-            background: "rgba(255,255,255,0.72)",
+            background: "rgba(255,255,255,0.84)",
             color: branding.accentColor,
             borderBottom: `1px solid ${alpha(branding.primaryColor, 0.08)}`,
             backdropFilter: "blur(18px)"
@@ -195,11 +189,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
               sx={{
                 width: 420,
                 maxWidth: "100%",
-                bgcolor: "rgba(255,255,255,0.82)",
-                borderRadius: 999,
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: 999
-                }
+                bgcolor: "rgba(255,255,255,0.92)"
               }}
               InputProps={{
                 startAdornment: (
