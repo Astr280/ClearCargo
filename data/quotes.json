@@ -1,0 +1,153 @@
+[
+  {
+    "id": "Q-1",
+    "tenantId": "tenant-cargoclear",
+    "quoteNumber": "QT-24031",
+    "customerName": "BluePeak Pharma",
+    "contactName": "Sonia Weber",
+    "lane": "DE -> US",
+    "mode": "Air",
+    "origin": "Frankfurt",
+    "destination": "Chicago",
+    "incoterm": "DAP",
+    "owner": "J. Patel",
+    "stage": "Quoted",
+    "status": "Sent",
+    "validUntil": "2026-03-30T00:00:00.000Z",
+    "createdAt": "2026-03-24T08:30:00.000Z",
+    "estimatedWeightKg": 980,
+    "expectedMarginPercent": 13.4,
+    "notes": "Urgent pharma lane with DG handling and passive cooling.",
+    "lineItems": [
+      {
+        "code": "FRT",
+        "description": "Air freight",
+        "amount": 5200
+      },
+      {
+        "code": "DGD",
+        "description": "DG handling",
+        "amount": 900
+      },
+      {
+        "code": "DOC",
+        "description": "Export documentation",
+        "amount": 450
+      }
+    ]
+  },
+  {
+    "id": "Q-2",
+    "tenantId": "tenant-cargoclear",
+    "quoteNumber": "QT-24029",
+    "customerName": "Northwind Imports",
+    "contactName": "Elena Morris",
+    "lane": "CN -> US",
+    "mode": "Ocean",
+    "origin": "Ningbo",
+    "destination": "Long Beach",
+    "incoterm": "FOB",
+    "owner": "A. Mehta",
+    "stage": "Lead",
+    "status": "Draft",
+    "validUntil": "2026-04-04T00:00:00.000Z",
+    "createdAt": "2026-03-22T10:00:00.000Z",
+    "estimatedWeightKg": 16000,
+    "expectedMarginPercent": 17.8,
+    "notes": "Introductory lane pricing for spring replenishment volumes.",
+    "lineItems": [
+      {
+        "code": "FRT",
+        "description": "Ocean freight",
+        "amount": 7800
+      },
+      {
+        "code": "THC",
+        "description": "Terminal handling",
+        "amount": 1120
+      },
+      {
+        "code": "DOC",
+        "description": "Documentation",
+        "amount": 530
+      }
+    ]
+  },
+  {
+    "id": "Q-3",
+    "tenantId": "tenant-cargoclear",
+    "quoteNumber": "QT-24012",
+    "customerName": "Frontier Auto Parts",
+    "contactName": "Marcus Lee",
+    "lane": "KR -> US",
+    "mode": "Ocean",
+    "origin": "Busan",
+    "destination": "Houston",
+    "incoterm": "DDP",
+    "owner": "D. Shah",
+    "stage": "Won",
+    "status": "Approved",
+    "validUntil": "2026-03-18T00:00:00.000Z",
+    "createdAt": "2026-03-10T12:30:00.000Z",
+    "estimatedWeightKg": 18200,
+    "expectedMarginPercent": 11.2,
+    "notes": "Converted to operational job after customs and drayage scope approval.",
+    "convertedShipmentId": "4",
+    "lineItems": [
+      {
+        "code": "FRT",
+        "description": "Ocean freight",
+        "amount": 8450
+      },
+      {
+        "code": "CUS",
+        "description": "Customs brokerage",
+        "amount": 820
+      },
+      {
+        "code": "DRY",
+        "description": "Drayage",
+        "amount": 1180
+      }
+    ]
+  },
+  {
+    "id": "Q-4",
+    "tenantId": "tenant-atlas",
+    "quoteNumber": "QT-23988",
+    "customerName": "Atlas Retail Group",
+    "contactName": "Maya Lewis",
+    "lane": "SG -> US",
+    "mode": "Ocean",
+    "origin": "Singapore",
+    "destination": "Los Angeles",
+    "incoterm": "CIF",
+    "owner": "N. Thomas",
+    "stage": "Won",
+    "status": "Approved",
+    "validUntil": "2026-03-01T00:00:00.000Z",
+    "createdAt": "2026-02-25T09:45:00.000Z",
+    "estimatedWeightKg": 22000,
+    "expectedMarginPercent": 15.5,
+    "notes": "Awarded annual replenishment lane for West Coast retail distribution.",
+    "convertedShipmentId": "3",
+    "lineItems": [
+      {
+        "code": "FRT",
+        "description": "Ocean freight",
+        "amount": 9900
+      },
+      {
+        "code": "THC",
+        "description": "Terminal handling",
+        "amount": 1480
+      },
+      {
+        "code": "DOC",
+        "description": "Documentation",
+        "amount": 620
+      }
+    ]
+  }
+]
+

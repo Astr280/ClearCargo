@@ -82,7 +82,8 @@ function withoutSecrets(user: SeedUser): AppUser {
     tenantId: user.tenantId,
     name: user.name,
     email: user.email,
-    role: user.role
+    role: user.role,
+    customerName: user.customerName
   };
 }
 

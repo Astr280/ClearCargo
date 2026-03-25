@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   complianceQueue,
+  type CreateQuoteInput,
   type CreateShipmentDocumentVersionInput,
   type CreateShipmentDocumentInput,
   type CreateShipmentInput,
@@ -10,10 +11,13 @@ import {
   financeSummary,
   invoices,
   platformOverview,
+  quotes,
   shipments,
   shipmentDocuments,
   type FinanceSummary,
   type InvoiceRecord,
+  type QuoteRecord,
+  type QuoteStage,
   type ShipmentCostLine,
   type ShipmentDetail,
   type ShipmentDocument,
@@ -52,6 +56,15 @@ const invoiceDataCandidates = [
 const invoiceDataPath =
   invoiceDataCandidates.find((candidate) => fs.existsSync(path.dirname(candidate))) ?? invoiceDataCandidates[0];
 const seededInvoices: InvoiceRecord[] = structuredClone(invoices);
+
+const quoteDataCandidates = [
+  path.resolve(process.cwd(), "data/quotes.json"),
+  path.resolve(currentDir, "../../../../data/quotes.json"),
+  path.resolve(currentDir, "../../../../../../data/quotes.json")
+];
+const quoteDataPath =
+  quoteDataCandidates.find((candidate) => fs.existsSync(path.dirname(candidate))) ?? quoteDataCandidates[0];
+const seededQuotes: QuoteRecord[] = structuredClone(quotes);
 
 function loadShipmentStore() {
   if (!fs.existsSync(shipmentDataPath)) {
@@ -95,15 +108,49 @@ function persistInvoices() {
   fs.writeFileSync(invoiceDataPath, JSON.stringify(invoiceStore, null, 2));
 }
 
+function loadQuoteStore() {
+  if (!fs.existsSync(quoteDataPath)) {
+    fs.writeFileSync(quoteDataPath, JSON.stringify(seededQuotes, null, 2));
+    return structuredClone(seededQuotes);
+  }
+
+  const raw = fs.readFileSync(quoteDataPath, "utf-8");
+  return JSON.parse(raw) as QuoteRecord[];
+}
+
+function persistQuotes() {
+  fs.writeFileSync(quoteDataPath, JSON.stringify(quoteStore, null, 2));
+}
+
 const shipmentStore: Shipment[] = loadShipmentStore();
 const documentStore: ShipmentDocument[] = loadDocumentStore();
 const invoiceStore: InvoiceRecord[] = loadInvoiceStore();
+const quoteStore: QuoteRecord[] = loadQuoteStore();
 
 function nextShipmentSequence() {
   return shipmentStore.reduce((highest, shipment) => {
     const numericPart = Number(shipment.jobNumber.replace(/\D/g, ""));
     return Number.isNaN(numericPart) ? highest : Math.max(highest, numericPart);
   }, 24022) + 1;
+}
+
+function nextQuoteSequence() {
+  return quoteStore.reduce((highest, quote) => {
+    const numericPart = Number(quote.quoteNumber.replace(/\D/g, ""));
+    return Number.isNaN(numericPart) ? highest : Math.max(highest, numericPart);
+  }, 24031) + 1;
+}
+
+function isQuoteExpired(quote: QuoteRecord) {
+  return quote.stage !== "Won" && quote.stage !== "Lost" && new Date(quote.validUntil).getTime() < Date.now();
+}
+
+function normalizeQuote(quote: QuoteRecord) {
+  if (isQuoteExpired(quote) && quote.status !== "Expired") {
+    quote.status = "Expired";
+  }
+
+  return quote;
 }
 
 function shipmentMatchesScope(shipment: Shipment, tenantId: string, role?: UserRole, customerName?: string) {
@@ -130,12 +177,31 @@ function invoiceMatchesScope(invoice: InvoiceRecord, tenantId: string, role?: Us
   return true;
 }
 
+function quoteMatchesScope(quote: QuoteRecord, tenantId: string, role?: UserRole, customerName?: string) {
+  if (quote.tenantId !== tenantId) {
+    return false;
+  }
+
+  if (role === "Customer" && customerName) {
+    return quote.customerName === customerName;
+  }
+
+  return true;
+}
+
 function shipmentsForScope(tenantId: string, role?: UserRole, customerName?: string) {
   return shipmentStore.filter((shipment) => shipmentMatchesScope(shipment, tenantId, role, customerName));
 }
 
 function invoicesForScope(tenantId: string, role?: UserRole, customerName?: string) {
   return invoiceStore.filter((invoice) => invoiceMatchesScope(invoice, tenantId, role, customerName));
+}
+
+function quotesForScope(tenantId: string, role?: UserRole, customerName?: string) {
+  return quoteStore
+    .filter((quote) => quoteMatchesScope(quote, tenantId, role, customerName))
+    .map((quote) => normalizeQuote(quote))
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 }
 
 export function getDashboardPayload(tenantId: string, role?: UserRole, customerName?: string) {
@@ -346,9 +412,19 @@ export function deleteShipment(id: string, tenantId: string) {
     invoiceStore.length,
     ...invoiceStore.filter((invoice) => invoice.shipmentId !== id)
   );
+  quoteStore.forEach((quote) => {
+    if (quote.convertedShipmentId === id) {
+      quote.convertedShipmentId = undefined;
+      if (quote.stage === "Won") {
+        quote.stage = "Quoted";
+        quote.status = isQuoteExpired(quote) ? "Expired" : "Sent";
+      }
+    }
+  });
   persistShipments();
   persistDocuments();
   persistInvoices();
+  persistQuotes();
   return deleted;
 }
 
@@ -475,6 +551,94 @@ export function getCustomerDocumentCount(tenantId: string, role?: UserRole, cust
 
 export function getInvoices(tenantId: string, role?: UserRole, customerName?: string) {
   return invoicesForScope(tenantId, role, customerName).sort((left, right) => right.issuedAt.localeCompare(left.issuedAt));
+}
+
+export function getQuotes(tenantId: string, role?: UserRole, customerName?: string) {
+  const scopedQuotes = quotesForScope(tenantId, role, customerName);
+
+  if (scopedQuotes.some((quote) => quote.status === "Expired")) {
+    persistQuotes();
+  }
+
+  return scopedQuotes;
+}
+
+export function createQuote(input: CreateQuoteInput, tenantId: string) {
+  const quote: QuoteRecord = {
+    id: crypto.randomUUID(),
+    tenantId,
+    quoteNumber: `QT-${nextQuoteSequence()}`,
+    stage: "Quoted",
+    status: "Draft",
+    createdAt: new Date().toISOString(),
+    ...input
+  };
+
+  quoteStore.unshift(normalizeQuote(quote));
+  persistQuotes();
+  return quote;
+}
+
+export function updateQuoteStage(
+  id: string,
+  tenantId: string,
+  stage: QuoteStage,
+  role?: UserRole,
+  customerName?: string
+) {
+  const quote = quoteStore.find((item) => item.id === id && quoteMatchesScope(item, tenantId, role, customerName));
+
+  if (!quote) {
+    return null;
+  }
+
+  quote.stage = stage;
+
+  if (stage === "Won") {
+    quote.status = "Approved";
+  } else if (stage === "Lost") {
+    quote.status = "Expired";
+  } else if (quote.status === "Expired") {
+    quote.status = "Sent";
+  } else if (quote.status === "Draft") {
+    quote.status = "Sent";
+  }
+
+  normalizeQuote(quote);
+  persistQuotes();
+  return quote;
+}
+
+export function convertQuoteToShipment(id: string, tenantId: string) {
+  const quote = quoteStore.find((item) => item.id === id && item.tenantId === tenantId);
+
+  if (!quote) {
+    return null;
+  }
+
+  if (quote.convertedShipmentId) {
+    return getShipmentById(quote.convertedShipmentId, tenantId);
+  }
+
+  const shipment = createShipment(
+    {
+      customer: quote.customerName,
+      mode: quote.mode,
+      origin: quote.origin,
+      destination: quote.destination,
+      incoterm: quote.incoterm,
+      owner: quote.owner,
+      weightKg: quote.estimatedWeightKg,
+      marginPercent: quote.expectedMarginPercent
+    },
+    tenantId
+  );
+
+  quote.stage = "Won";
+  quote.status = "Approved";
+  quote.convertedShipmentId = shipment.id;
+  persistQuotes();
+  return shipment;
 }
 
 export function recordInvoicePayment(id: string, tenantId: string, amount: number, role?: UserRole, customerName?: string) {

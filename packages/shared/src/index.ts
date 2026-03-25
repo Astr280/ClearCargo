@@ -214,6 +214,69 @@ export interface InvoiceRecord {
   lineItems: InvoiceLineItem[];
 }
 
+export interface CustomerContact {
+  name: string;
+  role: string;
+  email: string;
+  phone: string;
+}
+
+export interface SalesActivityRecord {
+  id: string;
+  type: "Call" | "Email" | "Meeting";
+  subject: string;
+  happenedAt: string;
+  owner: string;
+}
+
+export type QuoteStage = "Lead" | "Quoted" | "Won" | "Lost";
+export type QuoteStatus = "Draft" | "Sent" | "Approved" | "Expired";
+
+export interface QuoteLineItem {
+  code: string;
+  description: string;
+  amount: number;
+}
+
+export interface QuoteRecord {
+  id: string;
+  tenantId: string;
+  quoteNumber: string;
+  customerName: string;
+  contactName: string;
+  lane: string;
+  mode: Shipment["mode"];
+  origin: string;
+  destination: string;
+  incoterm: string;
+  owner: string;
+  stage: QuoteStage;
+  status: QuoteStatus;
+  validUntil: string;
+  createdAt: string;
+  estimatedWeightKg: number;
+  expectedMarginPercent: number;
+  notes?: string;
+  lineItems: QuoteLineItem[];
+  convertedShipmentId?: string;
+}
+
+export interface CreateQuoteInput {
+  customerName: string;
+  contactName: string;
+  lane: string;
+  mode: Shipment["mode"];
+  origin: string;
+  destination: string;
+  incoterm: string;
+  owner: string;
+  validUntil: string;
+  estimatedWeightKg: number;
+  expectedMarginPercent: number;
+  notes?: string;
+  lineItems: QuoteLineItem[];
+}
+
 export interface WarehouseTask {
   id: string;
   type: string;
@@ -229,6 +292,9 @@ export interface CustomerAccount {
   creditTerms: string;
   quoteStage: string;
   openShipments: number;
+  preferredCarriers: string[];
+  contacts: CustomerContact[];
+  activities: SalesActivityRecord[];
 }
 
 export interface PlatformOverview {
@@ -280,7 +346,7 @@ export const shipments: Shipment[] = [
     jobNumber: "CC-23967",
     mode: "Ocean",
     stage: "In Transit",
-    customer: "Northwind Imports",
+    customer: "Atlas Retail Group",
     origin: "Singapore",
     destination: "Los Angeles",
     incoterm: "CIF",
@@ -343,7 +409,16 @@ export const customers: CustomerAccount[] = [
     lane: "CN -> US",
     creditTerms: "45 days",
     quoteStage: "Won",
-    openShipments: 14
+    openShipments: 14,
+    preferredCarriers: ["Maersk", "CMA CGM"],
+    contacts: [
+      { name: "Elena Morris", role: "Import Manager", email: "elena@northwind.example", phone: "+1 310 555 0184" },
+      { name: "Jordan Pike", role: "Procurement", email: "jordan@northwind.example", phone: "+1 310 555 0149" }
+    ],
+    activities: [
+      { id: "ACT-1001", type: "Call", subject: "Reviewed Q2 China consolidation lanes", happenedAt: "2026-03-21T16:00:00.000Z", owner: "A. Mehta" },
+      { id: "ACT-1002", type: "Email", subject: "Shared revised ocean quote with THC breakout", happenedAt: "2026-03-23T09:15:00.000Z", owner: "A. Mehta" }
+    ]
   },
   {
     tenantId: "tenant-cargoclear",
@@ -351,7 +426,15 @@ export const customers: CustomerAccount[] = [
     lane: "DE -> US",
     creditTerms: "30 days",
     quoteStage: "Quoted",
-    openShipments: 5
+    openShipments: 5,
+    preferredCarriers: ["Lufthansa Cargo", "Qatar Airways Cargo"],
+    contacts: [
+      { name: "Sonia Weber", role: "Logistics Lead", email: "sonia@bluepeak.example", phone: "+49 69 555 0144" },
+      { name: "Liam Boyd", role: "QA Distribution", email: "liam@bluepeak.example", phone: "+1 312 555 0160" }
+    ],
+    activities: [
+      { id: "ACT-1003", type: "Meeting", subject: "Reviewed temperature-control SOP for urgent uplift", happenedAt: "2026-03-22T13:00:00.000Z", owner: "J. Patel" }
+    ]
   },
   {
     tenantId: "tenant-cargoclear",
@@ -359,7 +442,14 @@ export const customers: CustomerAccount[] = [
     lane: "KR -> US",
     creditTerms: "60 days",
     quoteStage: "Won",
-    openShipments: 8
+    openShipments: 8,
+    preferredCarriers: ["Hapag-Lloyd", "Hyundai Merchant Marine"],
+    contacts: [
+      { name: "Marcus Lee", role: "Supply Chain Director", email: "marcus@frontier.example", phone: "+1 713 555 0192" }
+    ],
+    activities: [
+      { id: "ACT-1004", type: "Email", subject: "Sent customs escalation summary for Houston entry", happenedAt: "2026-03-24T18:40:00.000Z", owner: "D. Shah" }
+    ]
   },
   {
     tenantId: "tenant-atlas",
@@ -367,7 +457,119 @@ export const customers: CustomerAccount[] = [
     lane: "SG -> US",
     creditTerms: "30 days",
     quoteStage: "Won",
-    openShipments: 3
+    openShipments: 3,
+    preferredCarriers: ["OOCL", "COSCO"],
+    contacts: [
+      { name: "Maya Lewis", role: "Import Supervisor", email: "maya@atlas.example", phone: "+1 213 555 0127" }
+    ],
+    activities: [
+      { id: "ACT-1005", type: "Email", subject: "Portal activation and invoice handover", happenedAt: "2026-03-20T08:30:00.000Z", owner: "N. Thomas" }
+    ]
+  }
+];
+
+export const quotes: QuoteRecord[] = [
+  {
+    id: "Q-1",
+    tenantId: "tenant-cargoclear",
+    quoteNumber: "QT-24031",
+    customerName: "BluePeak Pharma",
+    contactName: "Sonia Weber",
+    lane: "DE -> US",
+    mode: "Air",
+    origin: "Frankfurt",
+    destination: "Chicago",
+    incoterm: "DAP",
+    owner: "J. Patel",
+    stage: "Quoted",
+    status: "Sent",
+    validUntil: "2026-03-30T00:00:00.000Z",
+    createdAt: "2026-03-24T08:30:00.000Z",
+    estimatedWeightKg: 980,
+    expectedMarginPercent: 13.4,
+    notes: "Urgent pharma lane with DG handling and passive cooling.",
+    lineItems: [
+      { code: "FRT", description: "Air freight", amount: 5200 },
+      { code: "DGD", description: "DG handling", amount: 900 },
+      { code: "DOC", description: "Export documentation", amount: 450 }
+    ]
+  },
+  {
+    id: "Q-2",
+    tenantId: "tenant-cargoclear",
+    quoteNumber: "QT-24029",
+    customerName: "Northwind Imports",
+    contactName: "Elena Morris",
+    lane: "CN -> US",
+    mode: "Ocean",
+    origin: "Ningbo",
+    destination: "Long Beach",
+    incoterm: "FOB",
+    owner: "A. Mehta",
+    stage: "Lead",
+    status: "Draft",
+    validUntil: "2026-04-04T00:00:00.000Z",
+    createdAt: "2026-03-22T10:00:00.000Z",
+    estimatedWeightKg: 16000,
+    expectedMarginPercent: 17.8,
+    notes: "Introductory lane pricing for spring replenishment volumes.",
+    lineItems: [
+      { code: "FRT", description: "Ocean freight", amount: 7800 },
+      { code: "THC", description: "Terminal handling", amount: 1120 },
+      { code: "DOC", description: "Documentation", amount: 530 }
+    ]
+  },
+  {
+    id: "Q-3",
+    tenantId: "tenant-cargoclear",
+    quoteNumber: "QT-24012",
+    customerName: "Frontier Auto Parts",
+    contactName: "Marcus Lee",
+    lane: "KR -> US",
+    mode: "Ocean",
+    origin: "Busan",
+    destination: "Houston",
+    incoterm: "DDP",
+    owner: "D. Shah",
+    stage: "Won",
+    status: "Approved",
+    validUntil: "2026-03-18T00:00:00.000Z",
+    createdAt: "2026-03-10T12:30:00.000Z",
+    estimatedWeightKg: 18200,
+    expectedMarginPercent: 11.2,
+    notes: "Converted to operational job after customs and drayage scope approval.",
+    convertedShipmentId: "4",
+    lineItems: [
+      { code: "FRT", description: "Ocean freight", amount: 8450 },
+      { code: "CUS", description: "Customs brokerage", amount: 820 },
+      { code: "DRY", description: "Drayage", amount: 1180 }
+    ]
+  },
+  {
+    id: "Q-4",
+    tenantId: "tenant-atlas",
+    quoteNumber: "QT-23988",
+    customerName: "Atlas Retail Group",
+    contactName: "Maya Lewis",
+    lane: "SG -> US",
+    mode: "Ocean",
+    origin: "Singapore",
+    destination: "Los Angeles",
+    incoterm: "CIF",
+    owner: "N. Thomas",
+    stage: "Won",
+    status: "Approved",
+    validUntil: "2026-03-01T00:00:00.000Z",
+    createdAt: "2026-02-25T09:45:00.000Z",
+    estimatedWeightKg: 22000,
+    expectedMarginPercent: 15.5,
+    notes: "Awarded annual replenishment lane for West Coast retail distribution.",
+    convertedShipmentId: "3",
+    lineItems: [
+      { code: "FRT", description: "Ocean freight", amount: 9900 },
+      { code: "THC", description: "Terminal handling", amount: 1480 },
+      { code: "DOC", description: "Documentation", amount: 620 }
+    ]
   }
 ];
 

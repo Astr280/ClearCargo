@@ -2,6 +2,8 @@ import { Router } from "express";
 import {
   addShipmentDocumentVersion,
   addShipmentDocument,
+  convertQuoteToShipment,
+  createQuote,
   createShipment,
   deleteShipment,
   getComplianceQueue,
@@ -11,21 +13,26 @@ import {
   getFinanceSummaryForScope,
   getInvoices,
   getPlatformOverview,
+  getQuotes,
   getShipmentById,
   getShipmentDetailForRole,
   getShipments,
   getWarehouseTasks,
   recordInvoicePayment,
   updateShipmentDocument,
+  updateQuoteStage,
   updateShipment,
   updateShipmentStage
 } from "../services/platform-data.js";
 import type {
+  CreateQuoteInput,
   CreateShipmentDocumentVersionInput,
   CreateShipmentDocumentInput,
   CreateShipmentInput,
   InvoiceRecord,
   LoginRequest,
+  QuoteRecord,
+  QuoteStage,
   ShipmentDocumentType,
   ShipmentDocumentStatus,
   ShipmentStage,
@@ -46,6 +53,7 @@ const shipmentDocumentTypes: ShipmentDocumentType[] = [
   "Delivery Order"
 ];
 const shipmentDocumentStatuses: ShipmentDocumentStatus[] = ["Draft", "Ready", "Approved", "Signed"];
+const quoteStages: QuoteStage[] = ["Lead", "Quoted", "Won", "Lost"];
 
 function getRouteParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -434,6 +442,94 @@ router.get(
         response.locals.session.user.customerName
       )
     );
+  }
+);
+
+router.get(
+  "/crm/quotes",
+  requireRoles(["Freight Coordinator", "Operations Manager", "System Admin"]),
+  (_request, response) => {
+    response.json(getQuotes(response.locals.session.user.tenantId, response.locals.session.user.role));
+  }
+);
+
+router.post(
+  "/crm/quotes",
+  requireRoles(["Freight Coordinator", "Operations Manager", "System Admin"]),
+  (request, response) => {
+    const payload = request.body as Partial<CreateQuoteInput>;
+    const hasLineItems = Array.isArray(payload.lineItems) && payload.lineItems.length > 0;
+
+    if (
+      !payload.customerName ||
+      !payload.contactName ||
+      !payload.lane ||
+      !payload.mode ||
+      !payload.origin ||
+      !payload.destination ||
+      !payload.incoterm ||
+      !payload.owner ||
+      !payload.validUntil ||
+      typeof payload.estimatedWeightKg !== "number" ||
+      typeof payload.expectedMarginPercent !== "number" ||
+      !hasLineItems
+    ) {
+      response.status(400).json({ message: "Invalid quote payload." });
+      return;
+    }
+
+    const quote = createQuote(payload as CreateQuoteInput, response.locals.session.user.tenantId);
+    response.status(201).json(quote satisfies QuoteRecord);
+  }
+);
+
+router.patch(
+  "/crm/quotes/:id/stage",
+  requireRoles(["Freight Coordinator", "Operations Manager", "System Admin"]),
+  (request, response) => {
+    const quoteId = getRouteParam(request.params.id);
+    const stage = request.body?.stage as QuoteStage | undefined;
+
+    if (!quoteId || !stage || !quoteStages.includes(stage)) {
+      response.status(400).json({ message: "Invalid quote stage." });
+      return;
+    }
+
+    const quote = updateQuoteStage(
+      quoteId,
+      response.locals.session.user.tenantId,
+      stage,
+      response.locals.session.user.role
+    );
+
+    if (!quote) {
+      response.status(404).json({ message: "Quote not found." });
+      return;
+    }
+
+    response.json(quote satisfies QuoteRecord);
+  }
+);
+
+router.post(
+  "/crm/quotes/:id/convert",
+  requireRoles(["Freight Coordinator", "Operations Manager", "System Admin"]),
+  (request, response) => {
+    const quoteId = getRouteParam(request.params.id);
+
+    if (!quoteId) {
+      response.status(400).json({ message: "Quote id is required." });
+      return;
+    }
+
+    const shipment = convertQuoteToShipment(quoteId, response.locals.session.user.tenantId);
+
+    if (!shipment) {
+      response.status(404).json({ message: "Quote not found." });
+      return;
+    }
+
+    response.status(201).json(shipment);
   }
 );
 

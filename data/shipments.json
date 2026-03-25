@@ -34,7 +34,7 @@
     "jobNumber": "CC-23967",
     "mode": "Ocean",
     "stage": "In Transit",
-    "customer": "Northwind Imports",
+    "customer": "Atlas Retail Group",
     "origin": "Singapore",
     "destination": "Los Angeles",
     "incoterm": "CIF",
@@ -59,3 +59,4 @@
     "marginPercent": 8.1
   }
 ]
+
