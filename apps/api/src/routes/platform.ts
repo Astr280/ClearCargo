@@ -188,7 +188,7 @@ router.get("/shipments/:id/detail", (request, response) => {
 router.post(
   "/shipments",
   requireRoles(["Freight Coordinator", "Operations Manager", "System Admin"]),
-  (request, response) => {
+  async (request, response) => {
     const payload = request.body as Partial<CreateShipmentInput>;
 
     if (
@@ -205,7 +205,7 @@ router.post(
       return;
     }
 
-    const shipment = createShipment(payload as CreateShipmentInput, response.locals.session.user.tenantId);
+    const shipment = await createShipment(payload as CreateShipmentInput, response.locals.session.user.tenantId);
     response.status(201).json(shipment);
   }
 );
@@ -213,7 +213,7 @@ router.post(
 router.put(
   "/shipments/:id",
   requireRoles(["Freight Coordinator", "Operations Manager", "System Admin"]),
-  (request, response) => {
+  async (request, response) => {
     const payload = request.body as Partial<UpdateShipmentInput>;
 
     if (
@@ -233,7 +233,7 @@ router.put(
 
     const shipmentId = getRouteParam(request.params.id);
     const shipment = shipmentId
-      ? updateShipment(shipmentId, response.locals.session.user.tenantId, payload as UpdateShipmentInput)
+      ? await updateShipment(shipmentId, response.locals.session.user.tenantId, payload as UpdateShipmentInput)
       : null;
 
     if (!shipment) {
@@ -248,7 +248,7 @@ router.put(
 router.patch(
   "/shipments/:id/stage",
   requireRoles(["Freight Coordinator", "Operations Manager", "System Admin"]),
-  (request, response) => {
+  async (request, response) => {
     const stage = request.body?.stage as ShipmentStage | undefined;
 
     if (!stage || !shipmentStages.includes(stage)) {
@@ -257,7 +257,7 @@ router.patch(
     }
 
     const shipmentId = getRouteParam(request.params.id);
-    const shipment = shipmentId ? updateShipmentStage(shipmentId, response.locals.session.user.tenantId, stage) : null;
+    const shipment = shipmentId ? await updateShipmentStage(shipmentId, response.locals.session.user.tenantId, stage) : null;
 
     if (!shipment) {
       response.status(404).json({ message: "Shipment not found." });
@@ -271,7 +271,7 @@ router.patch(
 router.post(
   "/shipments/:id/documents",
   requireRoles(["Freight Coordinator", "Customs Broker", "Operations Manager", "System Admin"]),
-  (request, response) => {
+  async (request, response) => {
     const payload = request.body as Partial<CreateShipmentDocumentInput>;
 
     if (!payload.fileName || !payload.source || !shipmentDocumentTypes.includes(payload.type as ShipmentDocumentType)) {
@@ -279,7 +279,7 @@ router.post(
       return;
     }
 
-    const document = addShipmentDocument(
+    const document = await addShipmentDocument(
       getRouteParam(request.params.id) ?? "",
       response.locals.session.user.tenantId,
       payload as CreateShipmentDocumentInput,
@@ -298,7 +298,7 @@ router.post(
 router.patch(
   "/shipments/:id/documents/:documentId",
   requireRoles(["Freight Coordinator", "Customs Broker", "Operations Manager", "System Admin"]),
-  (request, response) => {
+  async (request, response) => {
     const payload = request.body as Partial<UpdateShipmentDocumentInput>;
     const shipmentId = getRouteParam(request.params.id);
     const documentId = getRouteParam(request.params.documentId);
@@ -313,7 +313,7 @@ router.patch(
       return;
     }
 
-    const document = updateShipmentDocument(shipmentId, response.locals.session.user.tenantId, documentId, payload as UpdateShipmentDocumentInput);
+    const document = await updateShipmentDocument(shipmentId, response.locals.session.user.tenantId, documentId, payload as UpdateShipmentDocumentInput);
 
     if (!document) {
       response.status(404).json({ message: "Document not found." });
@@ -327,7 +327,7 @@ router.patch(
 router.post(
   "/shipments/:id/documents/:documentId/versions",
   requireRoles(["Freight Coordinator", "Customs Broker", "Operations Manager", "System Admin"]),
-  (request, response) => {
+  async (request, response) => {
     const payload = request.body as Partial<CreateShipmentDocumentVersionInput>;
     const shipmentId = getRouteParam(request.params.id);
     const documentId = getRouteParam(request.params.documentId);
@@ -337,7 +337,7 @@ router.post(
       return;
     }
 
-    const document = addShipmentDocumentVersion(
+    const document = await addShipmentDocumentVersion(
       shipmentId,
       response.locals.session.user.tenantId,
       documentId,
@@ -357,9 +357,9 @@ router.post(
 router.delete(
   "/shipments/:id",
   requireRoles(["Freight Coordinator", "Operations Manager", "System Admin"]),
-  (request, response) => {
+  async (request, response) => {
     const shipmentId = getRouteParam(request.params.id);
-    const shipment = shipmentId ? deleteShipment(shipmentId, response.locals.session.user.tenantId) : null;
+    const shipment = shipmentId ? await deleteShipment(shipmentId, response.locals.session.user.tenantId) : null;
 
     if (!shipment) {
       response.status(404).json({ message: "Shipment not found." });
@@ -452,7 +452,7 @@ router.get(
 router.post(
   "/finance/invoices/:id/payments",
   requireRoles(["Finance / Billing", "Operations Manager", "System Admin", "Customer"]),
-  (request, response) => {
+  async (request, response) => {
     const invoiceId = getRouteParam(request.params.id);
     const amount = Number(request.body?.amount);
 
@@ -461,7 +461,7 @@ router.post(
       return;
     }
 
-    const invoice = recordInvoicePayment(
+    const invoice = await recordInvoicePayment(
       invoiceId,
       response.locals.session.user.tenantId,
       amount,
@@ -540,7 +540,7 @@ router.get(
 router.post(
   "/crm/quotes",
   requireRoles(["Freight Coordinator", "Operations Manager", "System Admin"]),
-  (request, response) => {
+  async (request, response) => {
     const payload = request.body as Partial<CreateQuoteInput>;
     const hasLineItems = Array.isArray(payload.lineItems) && payload.lineItems.length > 0;
 
@@ -562,7 +562,7 @@ router.post(
       return;
     }
 
-    const quote = createQuote(payload as CreateQuoteInput, response.locals.session.user.tenantId);
+    const quote = await createQuote(payload as CreateQuoteInput, response.locals.session.user.tenantId);
     response.status(201).json(quote satisfies QuoteRecord);
   }
 );
@@ -570,7 +570,7 @@ router.post(
 router.patch(
   "/crm/quotes/:id/stage",
   requireRoles(["Freight Coordinator", "Operations Manager", "System Admin"]),
-  (request, response) => {
+  async (request, response) => {
     const quoteId = getRouteParam(request.params.id);
     const stage = request.body?.stage as QuoteStage | undefined;
 
@@ -579,7 +579,7 @@ router.patch(
       return;
     }
 
-    const quote = updateQuoteStage(
+    const quote = await updateQuoteStage(
       quoteId,
       response.locals.session.user.tenantId,
       stage,
@@ -598,7 +598,7 @@ router.patch(
 router.post(
   "/crm/quotes/:id/convert",
   requireRoles(["Freight Coordinator", "Operations Manager", "System Admin"]),
-  (request, response) => {
+  async (request, response) => {
     const quoteId = getRouteParam(request.params.id);
 
     if (!quoteId) {
@@ -606,7 +606,7 @@ router.post(
       return;
     }
 
-    const shipment = convertQuoteToShipment(quoteId, response.locals.session.user.tenantId);
+    const shipment = await convertQuoteToShipment(quoteId, response.locals.session.user.tenantId);
 
     if (!shipment) {
       response.status(404).json({ message: "Quote not found." });

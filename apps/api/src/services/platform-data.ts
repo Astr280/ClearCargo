@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { initializeDatabasePersistence, isDatabasePersistenceEnabled, persistDatabaseEntity } from "./database.js";
 import {
   complianceQueue,
   type CreateQuoteInput,
@@ -66,6 +67,7 @@ const quoteDataCandidates = [
 const quoteDataPath =
   quoteDataCandidates.find((candidate) => fs.existsSync(path.dirname(candidate))) ?? quoteDataCandidates[0];
 const seededQuotes: QuoteRecord[] = structuredClone(quotes);
+const seededCustomers = structuredClone(customers);
 
 function loadShipmentStore() {
   if (!fs.existsSync(shipmentDataPath)) {
@@ -123,10 +125,37 @@ function persistQuotes() {
   fs.writeFileSync(quoteDataPath, JSON.stringify(quoteStore, null, 2));
 }
 
-const shipmentStore: Shipment[] = loadShipmentStore();
-const documentStore: ShipmentDocument[] = loadDocumentStore();
-const invoiceStore: InvoiceRecord[] = loadInvoiceStore();
-const quoteStore: QuoteRecord[] = loadQuoteStore();
+async function persistShipmentsToStorage() {
+  persistShipments();
+  await persistDatabaseEntity("shipments", shipmentStore);
+}
+
+async function persistDocumentsToStorage() {
+  persistDocuments();
+  await persistDatabaseEntity(
+    "documents",
+    documentStore.map((document) => ({
+      ...document,
+      tenantId: shipmentStore.find((shipment) => shipment.id === document.shipmentId)?.tenantId ?? "shared"
+    }))
+  );
+}
+
+async function persistInvoicesToStorage() {
+  persistInvoices();
+  await persistDatabaseEntity("invoices", invoiceStore);
+}
+
+async function persistQuotesToStorage() {
+  persistQuotes();
+  await persistDatabaseEntity("quotes", quoteStore);
+}
+
+let shipmentStore: Shipment[] = loadShipmentStore();
+let documentStore: ShipmentDocument[] = loadDocumentStore();
+let invoiceStore: InvoiceRecord[] = loadInvoiceStore();
+let quoteStore: QuoteRecord[] = loadQuoteStore();
+let customerStore = seededCustomers;
 
 function nextShipmentSequence() {
   return shipmentStore.reduce((highest, shipment) => {
@@ -203,6 +232,30 @@ function quotesForScope(tenantId: string, role?: UserRole, customerName?: string
     .filter((quote) => quoteMatchesScope(quote, tenantId, role, customerName))
     .map((quote) => normalizeQuote(quote))
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+}
+
+export async function initializePlatformDataPersistence() {
+  if (!isDatabasePersistenceEnabled()) {
+    return;
+  }
+
+  const snapshot = await initializeDatabasePersistence({
+    shipments: shipmentStore,
+    documents: documentStore,
+    invoices: invoiceStore,
+    quotes: quoteStore,
+    customers: customerStore
+  });
+
+  if (!snapshot) {
+    return;
+  }
+
+  shipmentStore = snapshot.shipments;
+  documentStore = snapshot.documents;
+  invoiceStore = snapshot.invoices;
+  quoteStore = snapshot.quotes;
+  customerStore = snapshot.customers;
 }
 
 export function getDashboardPayload(tenantId: string, role?: UserRole, customerName?: string) {
@@ -356,7 +409,7 @@ export function getShipmentDetailForRole(id: string, tenantId: string, role: Use
   } satisfies ShipmentDetail;
 }
 
-export function createShipment(input: CreateShipmentInput, tenantId: string) {
+export async function createShipment(input: CreateShipmentInput, tenantId: string) {
   const shipment: Shipment = {
     id: crypto.randomUUID(),
     tenantId,
@@ -367,11 +420,11 @@ export function createShipment(input: CreateShipmentInput, tenantId: string) {
   };
 
   shipmentStore.unshift(shipment);
-  persistShipments();
+  await persistShipmentsToStorage();
   return shipment;
 }
 
-export function updateShipmentStage(id: string, tenantId: string, stage: ShipmentStage) {
+export async function updateShipmentStage(id: string, tenantId: string, stage: ShipmentStage) {
   const shipment = shipmentStore.find((item) => item.id === id && item.tenantId === tenantId);
 
   if (!shipment) {
@@ -379,11 +432,11 @@ export function updateShipmentStage(id: string, tenantId: string, stage: Shipmen
   }
 
   shipment.stage = stage;
-  persistShipments();
+  await persistShipmentsToStorage();
   return shipment;
 }
 
-export function updateShipment(id: string, tenantId: string, input: UpdateShipmentInput) {
+export async function updateShipment(id: string, tenantId: string, input: UpdateShipmentInput) {
   const shipment = shipmentStore.find((item) => item.id === id && item.tenantId === tenantId);
 
   if (!shipment) {
@@ -391,11 +444,11 @@ export function updateShipment(id: string, tenantId: string, input: UpdateShipme
   }
 
   Object.assign(shipment, input);
-  persistShipments();
+  await persistShipmentsToStorage();
   return shipment;
 }
 
-export function deleteShipment(id: string, tenantId: string) {
+export async function deleteShipment(id: string, tenantId: string) {
   const index = shipmentStore.findIndex((item) => item.id === id && item.tenantId === tenantId);
 
   if (index === -1) {
@@ -422,14 +475,14 @@ export function deleteShipment(id: string, tenantId: string) {
       }
     }
   });
-  persistShipments();
-  persistDocuments();
-  persistInvoices();
-  persistQuotes();
+  await persistShipmentsToStorage();
+  await persistDocumentsToStorage();
+  await persistInvoicesToStorage();
+  await persistQuotesToStorage();
   return deleted;
 }
 
-export function addShipmentDocument(shipmentId: string, tenantId: string, input: CreateShipmentDocumentInput, uploadedBy: string) {
+export async function addShipmentDocument(shipmentId: string, tenantId: string, input: CreateShipmentDocumentInput, uploadedBy: string) {
   const shipment = getShipmentById(shipmentId, tenantId);
 
   if (!shipment) {
@@ -460,7 +513,7 @@ export function addShipmentDocument(shipmentId: string, tenantId: string, input:
   };
 
   documentStore.unshift(document);
-  persistDocuments();
+  await persistDocumentsToStorage();
   return document;
 }
 
@@ -468,7 +521,7 @@ function findDocument(documentId: string, shipmentId: string) {
   return documentStore.find((document) => document.id === documentId && document.shipmentId === shipmentId) ?? null;
 }
 
-export function updateShipmentDocument(
+export async function updateShipmentDocument(
   shipmentId: string,
   tenantId: string,
   documentId: string,
@@ -495,11 +548,11 @@ export function updateShipmentDocument(
   }
 
   document.updatedAt = new Date().toISOString();
-  persistDocuments();
+  await persistDocumentsToStorage();
   return document;
 }
 
-export function addShipmentDocumentVersion(
+export async function addShipmentDocumentVersion(
   shipmentId: string,
   tenantId: string,
   documentId: string,
@@ -535,7 +588,7 @@ export function addShipmentDocumentVersion(
     notes: input.notes
   });
 
-  persistDocuments();
+  await persistDocumentsToStorage();
   return document;
 }
 
@@ -578,7 +631,7 @@ export function getQuoteById(id: string, tenantId: string, role?: UserRole, cust
   return normalizeQuote(quote);
 }
 
-export function createQuote(input: CreateQuoteInput, tenantId: string) {
+export async function createQuote(input: CreateQuoteInput, tenantId: string) {
   const quote: QuoteRecord = {
     id: crypto.randomUUID(),
     tenantId,
@@ -590,11 +643,11 @@ export function createQuote(input: CreateQuoteInput, tenantId: string) {
   };
 
   quoteStore.unshift(normalizeQuote(quote));
-  persistQuotes();
+  await persistQuotesToStorage();
   return quote;
 }
 
-export function updateQuoteStage(
+export async function updateQuoteStage(
   id: string,
   tenantId: string,
   stage: QuoteStage,
@@ -620,11 +673,11 @@ export function updateQuoteStage(
   }
 
   normalizeQuote(quote);
-  persistQuotes();
+  await persistQuotesToStorage();
   return quote;
 }
 
-export function convertQuoteToShipment(id: string, tenantId: string) {
+export async function convertQuoteToShipment(id: string, tenantId: string) {
   const quote = quoteStore.find((item) => item.id === id && item.tenantId === tenantId);
 
   if (!quote) {
@@ -635,7 +688,7 @@ export function convertQuoteToShipment(id: string, tenantId: string) {
     return getShipmentById(quote.convertedShipmentId, tenantId);
   }
 
-  const shipment = createShipment(
+  const shipment = await createShipment(
     {
       customer: quote.customerName,
       mode: quote.mode,
@@ -652,11 +705,11 @@ export function convertQuoteToShipment(id: string, tenantId: string) {
   quote.stage = "Won";
   quote.status = "Approved";
   quote.convertedShipmentId = shipment.id;
-  persistQuotes();
+  await persistQuotesToStorage();
   return shipment;
 }
 
-export function recordInvoicePayment(id: string, tenantId: string, amount: number, role?: UserRole, customerName?: string) {
+export async function recordInvoicePayment(id: string, tenantId: string, amount: number, role?: UserRole, customerName?: string) {
   const invoice = invoiceStore.find((item) => item.id === id && invoiceMatchesScope(item, tenantId, role, customerName));
 
   if (!invoice) {
@@ -673,7 +726,7 @@ export function recordInvoicePayment(id: string, tenantId: string, amount: numbe
     invoice.status = "Partially Paid";
   }
 
-  persistInvoices();
+  await persistInvoicesToStorage();
   return invoice;
 }
 
@@ -714,7 +767,7 @@ export function getWarehouseTasks() {
 }
 
 export function getCustomers(tenantId: string, role?: UserRole, customerName?: string) {
-  return customers.filter((customer) => {
+  return customerStore.filter((customer) => {
     if (customer.tenantId !== tenantId) {
       return false;
     }
