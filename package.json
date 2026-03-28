@@ -12,6 +12,7 @@
     "dev:api": "npm run dev --workspace @cargoclear/api",
     "build:web": "npm run build --workspace @cargoclear/web",
     "build:api": "npm run build --workspace @cargoclear/api",
-    "build": "npm run build:web && npm run build:api"
+    "build": "npm run build:web && npm run build:api",
+    "db:sync:api": "npm run db:sync --workspace @cargoclear/api"
   }
 }

@@ -2,6 +2,7 @@ import { Pool } from "pg";
 import type {
   CustomerAccount,
   InvoiceRecord,
+  PersistenceStatus,
   QuoteRecord,
   Shipment,
   ShipmentDocument
@@ -56,6 +57,24 @@ function getPool() {
 
 function inferTenantId(row: PersistedEntity) {
   return row.tenantId ?? "shared";
+}
+
+function getConnectionMetadata() {
+  const connectionString = getDatabaseUrl();
+
+  if (!connectionString) {
+    return { host: undefined, databaseName: undefined };
+  }
+
+  try {
+    const url = new URL(connectionString);
+    return {
+      host: url.hostname || undefined,
+      databaseName: url.pathname.replace(/^\//, "") || undefined
+    };
+  } catch {
+    return { host: undefined, databaseName: undefined };
+  }
 }
 
 async function ensureTables() {
@@ -165,6 +184,66 @@ export function isDatabasePersistenceEnabled() {
   return Boolean(getDatabaseUrl());
 }
 
+export async function getDatabasePersistenceStatus(
+  inMemoryCounts: Array<{ name: string; count: number }>
+): Promise<PersistenceStatus> {
+  const { host, databaseName } = getConnectionMetadata();
+
+  if (!isDatabasePersistenceEnabled()) {
+    return {
+      mode: "json",
+      databaseUrlConfigured: false,
+      connected: false,
+      host,
+      databaseName,
+      message: "DATABASE_URL is not configured, so CargoClear is running on JSON-backed demo persistence.",
+      tables: [],
+      inMemoryCounts
+    };
+  }
+
+  try {
+    await ensureTables();
+    const db = getPool();
+
+    if (!db) {
+      throw new Error("Database pool was not created.");
+    }
+
+    const tableResults = await Promise.all(
+      (Object.entries(tableNames) as Array<[EntityName, string]>).map(async ([entity, tableName]) => {
+        const result = await db.query<{ count: string }>(`SELECT COUNT(*)::text AS count FROM ${tableName}`);
+        return {
+          name: entity,
+          rowCount: Number(result.rows[0]?.count ?? "0")
+        };
+      })
+    );
+
+    return {
+      mode: "postgres",
+      databaseUrlConfigured: true,
+      connected: true,
+      host,
+      databaseName,
+      message: "PostgreSQL persistence is configured and reachable.",
+      tables: tableResults,
+      inMemoryCounts
+    };
+  } catch (error) {
+    return {
+      mode: "postgres",
+      databaseUrlConfigured: true,
+      connected: false,
+      host,
+      databaseName,
+      message: error instanceof Error ? error.message : "Unable to connect to PostgreSQL.",
+      tables: [],
+      inMemoryCounts
+    };
+  }
+}
+
 export async function initializeDatabasePersistence(snapshot: PlatformPersistenceSnapshot) {
   if (!isDatabasePersistenceEnabled()) {
     return null;
@@ -235,4 +314,29 @@ export async function persistDatabaseEntity<T extends PersistedEntity>(entity: E
   }
 
   await writeRows(entity, rows);
+}
+
+export async function forceSyncDatabasePersistence(snapshot: PlatformPersistenceSnapshot) {
+  if (!isDatabasePersistenceEnabled()) {
+    throw new Error("DATABASE_URL is not configured.");
+  }
+
+  await ensureTables();
+  await writeRows("shipments", snapshot.shipments);
+  await writeRows(
+    "documents",
+    snapshot.documents.map((document) => ({
+      ...document,
+      tenantId: snapshot.shipments.find((shipment) => shipment.id === document.shipmentId)?.tenantId ?? "shared"
+    }))
+  );
+  await writeRows("invoices", snapshot.invoices);
+  await writeRows("quotes", snapshot.quotes);
+  await writeRows(
+    "customers",
+    snapshot.customers.map((customer): PersistedCustomerRecord => ({
+      ...customer,
+      id: `${customer.tenantId}:${customer.name}`
+    }))
+  );
 }

@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "db:sync": "tsx src/scripts/sync-database.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

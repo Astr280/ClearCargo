@@ -1,7 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { initializeDatabasePersistence, isDatabasePersistenceEnabled, persistDatabaseEntity } from "./database.js";
+import {
+  forceSyncDatabasePersistence,
+  getDatabasePersistenceStatus,
+  initializeDatabasePersistence,
+  isDatabasePersistenceEnabled,
+  persistDatabaseEntity
+} from "./database.js";
 import {
   complianceQueue,
   type CreateQuoteInput,
@@ -18,6 +24,7 @@ import {
   tenants,
   type FinanceSummary,
   type InvoiceRecord,
+  type PersistenceStatus,
   type QuoteRecord,
   type QuoteStage,
   type ShipmentCostLine,
@@ -151,6 +158,16 @@ async function persistQuotesToStorage() {
   await persistDatabaseEntity("quotes", quoteStore);
 }
 
+async function persistCustomersToStorage() {
+  await persistDatabaseEntity(
+    "customers",
+    customerStore.map((customer) => ({
+      ...customer,
+      id: `${customer.tenantId}:${customer.name}`
+    }))
+  );
+}
+
 let shipmentStore: Shipment[] = loadShipmentStore();
 let documentStore: ShipmentDocument[] = loadDocumentStore();
 let invoiceStore: InvoiceRecord[] = loadInvoiceStore();
@@ -256,6 +273,37 @@ export async function initializePlatformDataPersistence() {
   invoiceStore = snapshot.invoices;
   quoteStore = snapshot.quotes;
   customerStore = snapshot.customers;
+}
+
+function getInMemoryCounts() {
+  return [
+    { name: "shipments", count: shipmentStore.length },
+    { name: "documents", count: documentStore.length },
+    { name: "invoices", count: invoiceStore.length },
+    { name: "quotes", count: quoteStore.length },
+    { name: "customers", count: customerStore.length }
+  ];
+}
+
+export async function getPersistenceStatusSummary(): Promise<PersistenceStatus> {
+  return getDatabasePersistenceStatus(getInMemoryCounts());
+}
+
+export async function syncPlatformDataToDatabase() {
+  if (!isDatabasePersistenceEnabled()) {
+    throw new Error("DATABASE_URL is not configured.");
+  }
+
+  await forceSyncDatabasePersistence({
+    shipments: shipmentStore,
+    documents: documentStore,
+    invoices: invoiceStore,
+    quotes: quoteStore,
+    customers: customerStore
+  });
+
+  await persistCustomersToStorage();
+  return getPersistenceStatusSummary();
 }
 
 export function getDashboardPayload(tenantId: string, role?: UserRole, customerName?: string) {

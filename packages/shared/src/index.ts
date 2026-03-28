@@ -303,6 +303,17 @@ export interface PlatformOverview {
   tenancy: string[];
 }
 
+export interface PersistenceStatus {
+  mode: "json" | "postgres";
+  databaseUrlConfigured: boolean;
+  connected: boolean;
+  host?: string;
+  databaseName?: string;
+  message: string;
+  tables: Array<{ name: string; rowCount: number }>;
+  inMemoryCounts: Array<{ name: string; count: number }>;
+}
+
 export const dashboardMetrics: DashboardMetric[] = [
   { label: "Open Shipments", value: "1,248", trend: "+6.4% month over month" },
   { label: "Docs Generated", value: "18,420", trend: "96% automated" },

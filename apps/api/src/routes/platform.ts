@@ -13,6 +13,7 @@ import {
   getFinanceSummaryForScope,
   getInvoiceById,
   getInvoices,
+  getPersistenceStatusSummary,
   getPlatformOverview,
   getQuoteById,
   getQuotes,
@@ -22,6 +23,7 @@ import {
   getTenantConfig,
   getWarehouseTasks,
   recordInvoicePayment,
+  syncPlatformDataToDatabase,
   updateShipmentDocument,
   updateQuoteStage,
   updateShipment,
@@ -619,6 +621,21 @@ router.post(
 
 router.get("/platform/overview", requireRoles(["System Admin"]), (_request, response) => {
   response.json(getPlatformOverview());
+});
+
+router.get("/platform/persistence", requireRoles(["System Admin"]), async (_request, response) => {
+  response.json(await getPersistenceStatusSummary());
+});
+
+router.post("/platform/persistence/sync", requireRoles(["System Admin"]), async (_request, response) => {
+  try {
+    const status = await syncPlatformDataToDatabase();
+    response.json(status);
+  } catch (error) {
+    response.status(400).json({
+      message: error instanceof Error ? error.message : "Unable to sync persistence state."
+    });
+  }
 });
 
 export default router;
