@@ -11,12 +11,15 @@ import {
   getCustomerDocumentCount,
   getDashboardPayload,
   getFinanceSummaryForScope,
+  getInvoiceById,
   getInvoices,
   getPlatformOverview,
+  getQuoteById,
   getQuotes,
   getShipmentById,
   getShipmentDetailForRole,
   getShipments,
+  getTenantConfig,
   getWarehouseTasks,
   recordInvoicePayment,
   updateShipmentDocument,
@@ -24,6 +27,7 @@ import {
   updateShipment,
   updateShipmentStage
 } from "../services/platform-data.js";
+import { renderInvoiceDocument, renderQuoteDocument } from "../services/document-renderer.js";
 import type {
   CreateQuoteInput,
   CreateShipmentDocumentVersionInput,
@@ -398,6 +402,53 @@ router.get(
   }
 );
 
+router.get(
+  "/finance/invoices/:id/document",
+  requireRoles(["Finance / Billing", "Operations Manager", "System Admin", "Customer"]),
+  (request, response) => {
+    const invoiceId = getRouteParam(request.params.id);
+
+    if (!invoiceId) {
+      response.status(400).json({ message: "Invoice id is required." });
+      return;
+    }
+
+    const invoice = getInvoiceById(
+      invoiceId,
+      response.locals.session.user.tenantId,
+      response.locals.session.user.role,
+      response.locals.session.user.customerName
+    );
+    const tenant = getTenantConfig(response.locals.session.user.tenantId);
+
+    if (!invoice || !tenant) {
+      response.status(404).json({ message: "Invoice not found." });
+      return;
+    }
+
+    const shipment = getShipmentById(
+      invoice.shipmentId,
+      response.locals.session.user.tenantId,
+      response.locals.session.user.role,
+      response.locals.session.user.customerName
+    );
+    const customer = getCustomers(
+      response.locals.session.user.tenantId,
+      response.locals.session.user.role,
+      response.locals.session.user.customerName
+    ).find((item) => item.name === invoice.customerName) ?? null;
+
+    response.type("html").send(
+      renderInvoiceDocument({
+        tenant,
+        invoice,
+        shipment,
+        customer
+      })
+    );
+  }
+);
+
 router.post(
   "/finance/invoices/:id/payments",
   requireRoles(["Finance / Billing", "Operations Manager", "System Admin", "Customer"]),
@@ -450,6 +501,39 @@ router.get(
   requireRoles(["Freight Coordinator", "Operations Manager", "System Admin"]),
   (_request, response) => {
     response.json(getQuotes(response.locals.session.user.tenantId, response.locals.session.user.role));
+  }
+);
+
+router.get(
+  "/crm/quotes/:id/document",
+  requireRoles(["Freight Coordinator", "Operations Manager", "System Admin"]),
+  (request, response) => {
+    const quoteId = getRouteParam(request.params.id);
+
+    if (!quoteId) {
+      response.status(400).json({ message: "Quote id is required." });
+      return;
+    }
+
+    const quote = getQuoteById(quoteId, response.locals.session.user.tenantId, response.locals.session.user.role);
+    const tenant = getTenantConfig(response.locals.session.user.tenantId);
+
+    if (!quote || !tenant) {
+      response.status(404).json({ message: "Quote not found." });
+      return;
+    }
+
+    const customer = getCustomers(response.locals.session.user.tenantId, response.locals.session.user.role).find(
+      (item) => item.name === quote.customerName
+    ) ?? null;
+
+    response.type("html").send(
+      renderQuoteDocument({
+        tenant,
+        quote,
+        customer
+      })
+    );
   }
 );
 

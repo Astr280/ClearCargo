@@ -14,6 +14,7 @@ import {
   quotes,
   shipments,
   shipmentDocuments,
+  tenants,
   type FinanceSummary,
   type InvoiceRecord,
   type QuoteRecord,
@@ -553,6 +554,10 @@ export function getInvoices(tenantId: string, role?: UserRole, customerName?: st
   return invoicesForScope(tenantId, role, customerName).sort((left, right) => right.issuedAt.localeCompare(left.issuedAt));
 }
 
+export function getInvoiceById(id: string, tenantId: string, role?: UserRole, customerName?: string) {
+  return invoiceStore.find((invoice) => invoice.id === id && invoiceMatchesScope(invoice, tenantId, role, customerName)) ?? null;
+}
+
 export function getQuotes(tenantId: string, role?: UserRole, customerName?: string) {
   const scopedQuotes = quotesForScope(tenantId, role, customerName);
 
@@ -561,6 +566,16 @@ export function getQuotes(tenantId: string, role?: UserRole, customerName?: stri
   }
 
   return scopedQuotes;
+}
+
+export function getQuoteById(id: string, tenantId: string, role?: UserRole, customerName?: string) {
+  const quote = quoteStore.find((item) => item.id === id && quoteMatchesScope(item, tenantId, role, customerName)) ?? null;
+
+  if (!quote) {
+    return null;
+  }
+
+  return normalizeQuote(quote);
 }
 
 export function createQuote(input: CreateQuoteInput, tenantId: string) {
@@ -710,6 +725,10 @@ export function getCustomers(tenantId: string, role?: UserRole, customerName?: s
 
     return true;
   });
+}
+
+export function getTenantConfig(tenantId: string) {
+  return tenants.find((tenant) => tenant.id === tenantId) ?? null;
 }
 
 export function getPlatformOverview() {

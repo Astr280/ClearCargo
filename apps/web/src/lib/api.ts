@@ -57,3 +57,30 @@ export async function requestJson<T>(path: string, init: RequestInit, token?: st
 
   return handleResponse<T>(response);
 }
+
+export async function fetchText(path: string, token?: string): Promise<string> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: buildHeaders(undefined, token)
+  });
+
+  if (response.status === 401) {
+    window.dispatchEvent(new CustomEvent("cargoclear:unauthorized"));
+  }
+
+  if (!response.ok) {
+    let message = `Request failed: ${response.status}`;
+
+    try {
+      const body = (await response.json()) as { message?: string };
+      if (body.message) {
+        message = body.message;
+      }
+    } catch {
+      // Fall back to status-based message.
+    }
+
+    throw new Error(message);
+  }
+
+  return response.text();
+}

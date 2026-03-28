@@ -1,4 +1,5 @@
 import AccountBalanceWalletRoundedIcon from "@mui/icons-material/AccountBalanceWalletRounded";
+import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 import ReceiptLongRoundedIcon from "@mui/icons-material/ReceiptLongRounded";
 import TrendingUpRoundedIcon from "@mui/icons-material/TrendingUpRounded";
 import {
@@ -21,7 +22,7 @@ import { useEffect, useMemo, useState } from "react";
 import MetricGrid from "../components/MetricGrid";
 import PageHeader from "../components/PageHeader";
 import SectionCard from "../components/SectionCard";
-import { fetchJson, requestJson } from "../lib/api";
+import { fetchJson, fetchText, requestJson } from "../lib/api";
 
 function formatCurrency(amount: number, currency: string) {
   return new Intl.NumberFormat("en-US", {
@@ -47,6 +48,7 @@ export default function FinancePage() {
   const [invoiceRows, setInvoiceRows] = useState<InvoiceRecord[]>(invoices);
   const [error, setError] = useState<string | null>(null);
   const [payingInvoiceId, setPayingInvoiceId] = useState<string | null>(null);
+  const [openingDocumentId, setOpeningDocumentId] = useState<string | null>(null);
 
   async function loadFinance() {
     try {
@@ -100,6 +102,28 @@ export default function FinancePage() {
       setError((err as Error).message);
     } finally {
       setPayingInvoiceId(null);
+    }
+  }
+
+  async function handleOpenInvoiceDocument(invoiceId: string) {
+    setOpeningDocumentId(invoiceId);
+
+    try {
+      const html = await fetchText(`/finance/invoices/${invoiceId}/document`);
+      const popup = window.open("", "_blank", "noopener,noreferrer");
+
+      if (!popup) {
+        throw new Error("Unable to open invoice document window.");
+      }
+
+      popup.document.open();
+      popup.document.write(html);
+      popup.document.close();
+      setError(null);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setOpeningDocumentId(null);
     }
   }
 
@@ -161,14 +185,25 @@ export default function FinancePage() {
                       <TableCell>{new Date(invoice.dueDate).toLocaleDateString("en-US")}</TableCell>
                       <TableCell>{formatCurrency(outstanding, invoice.currency)}</TableCell>
                       <TableCell align="right">
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          disabled={outstanding <= 0 || payingInvoiceId === invoice.id}
-                          onClick={() => void handleRecordPayment(invoice)}
-                        >
-                          {payingInvoiceId === invoice.id ? "Recording..." : outstanding <= 0 ? "Settled" : "Record payment"}
-                        </Button>
+                        <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          <Button
+                            size="small"
+                            variant="text"
+                            startIcon={<OpenInNewRoundedIcon />}
+                            disabled={openingDocumentId === invoice.id}
+                            onClick={() => void handleOpenInvoiceDocument(invoice.id)}
+                          >
+                            {openingDocumentId === invoice.id ? "Opening..." : "View doc"}
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            disabled={outstanding <= 0 || payingInvoiceId === invoice.id}
+                            onClick={() => void handleRecordPayment(invoice)}
+                          >
+                            {payingInvoiceId === invoice.id ? "Recording..." : outstanding <= 0 ? "Settled" : "Record payment"}
+                          </Button>
+                        </Stack>
                       </TableCell>
                     </TableRow>
                   );

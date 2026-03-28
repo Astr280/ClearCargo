@@ -3,6 +3,7 @@ import ChatBubbleOutlineRoundedIcon from "@mui/icons-material/ChatBubbleOutlineR
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import LaunchRoundedIcon from "@mui/icons-material/LaunchRounded";
+import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 import PaymentsRoundedIcon from "@mui/icons-material/PaymentsRounded";
 import TimelineRoundedIcon from "@mui/icons-material/TimelineRounded";
 import TravelExploreRoundedIcon from "@mui/icons-material/TravelExploreRounded";
@@ -37,7 +38,7 @@ import { useAuth } from "../auth/AuthContext";
 import MetricGrid from "../components/MetricGrid";
 import PageHeader from "../components/PageHeader";
 import SectionCard from "../components/SectionCard";
-import { fetchJson, requestJson } from "../lib/api";
+import { fetchJson, fetchText, requestJson } from "../lib/api";
 
 const quoteStages: QuoteStage[] = ["Lead", "Quoted", "Won", "Lost"];
 
@@ -124,6 +125,7 @@ export default function CustomersPage() {
   const [savingQuote, setSavingQuote] = useState(false);
   const [changingQuoteId, setChangingQuoteId] = useState<string | null>(null);
   const [payingInvoiceId, setPayingInvoiceId] = useState<string | null>(null);
+  const [openingDocumentId, setOpeningDocumentId] = useState<string | null>(null);
   const isCustomerView = session?.user.role === "Customer";
 
   async function loadCustomerWorkspace() {
@@ -260,6 +262,28 @@ export default function CustomersPage() {
       setError((err as Error).message);
     } finally {
       setPayingInvoiceId(null);
+    }
+  }
+
+  async function handleOpenDocument(path: string, documentId: string) {
+    setOpeningDocumentId(documentId);
+
+    try {
+      const html = await fetchText(path);
+      const popup = window.open("", "_blank", "noopener,noreferrer");
+
+      if (!popup) {
+        throw new Error("Unable to open document window.");
+      }
+
+      popup.document.open();
+      popup.document.write(html);
+      popup.document.close();
+      setError(null);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setOpeningDocumentId(null);
     }
   }
 
@@ -508,20 +532,31 @@ export default function CustomersPage() {
                         <TableCell>{new Date(quote.validUntil).toLocaleDateString("en-US")}</TableCell>
                         <TableCell>{formatCurrency(getQuoteValue(quote), "USD")}</TableCell>
                         <TableCell align="right">
-                          {quote.convertedShipmentId ? (
-                            <IconButton component={Link} to={`/shipments/${quote.convertedShipmentId}`} sx={{ border: "1px solid rgba(15,79,191,0.08)" }}>
-                              <LaunchRoundedIcon fontSize="small" />
-                            </IconButton>
-                          ) : (
+                          <Stack direction="row" spacing={1} justifyContent="flex-end">
                             <Button
                               size="small"
-                              variant="contained"
-                              disabled={changingQuoteId === quote.id || quote.stage === "Lost"}
-                              onClick={() => void handleConvertQuote(quote.id)}
+                              variant="text"
+                              startIcon={<OpenInNewRoundedIcon />}
+                              disabled={openingDocumentId === quote.id}
+                              onClick={() => void handleOpenDocument(`/crm/quotes/${quote.id}/document`, quote.id)}
                             >
-                              {changingQuoteId === quote.id ? "Converting..." : "Convert to job"}
+                              {openingDocumentId === quote.id ? "Opening..." : "Preview"}
                             </Button>
-                          )}
+                            {quote.convertedShipmentId ? (
+                              <IconButton component={Link} to={`/shipments/${quote.convertedShipmentId}`} sx={{ border: "1px solid rgba(15,79,191,0.08)" }}>
+                                <LaunchRoundedIcon fontSize="small" />
+                              </IconButton>
+                            ) : (
+                              <Button
+                                size="small"
+                                variant="contained"
+                                disabled={changingQuoteId === quote.id || quote.stage === "Lost"}
+                                onClick={() => void handleConvertQuote(quote.id)}
+                              >
+                                {changingQuoteId === quote.id ? "Converting..." : "Convert to job"}
+                              </Button>
+                            )}
+                          </Stack>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -584,14 +619,25 @@ export default function CustomersPage() {
                           <TableCell>{new Date(invoice.dueDate).toLocaleDateString("en-US")}</TableCell>
                           <TableCell>{formatCurrency(outstanding, invoice.currency)}</TableCell>
                           <TableCell align="right">
-                            <Button
-                              size="small"
-                              variant="contained"
-                              disabled={outstanding <= 0 || payingInvoiceId === invoice.id}
-                              onClick={() => void handlePortalPayment(invoice)}
-                            >
-                              {payingInvoiceId === invoice.id ? "Processing..." : outstanding <= 0 ? "Paid" : "Pay now"}
-                            </Button>
+                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                              <Button
+                                size="small"
+                                variant="text"
+                                startIcon={<OpenInNewRoundedIcon />}
+                                disabled={openingDocumentId === invoice.id}
+                                onClick={() => void handleOpenDocument(`/finance/invoices/${invoice.id}/document`, invoice.id)}
+                              >
+                                {openingDocumentId === invoice.id ? "Opening..." : "View doc"}
+                              </Button>
+                              <Button
+                                size="small"
+                                variant="contained"
+                                disabled={outstanding <= 0 || payingInvoiceId === invoice.id}
+                                onClick={() => void handlePortalPayment(invoice)}
+                              >
+                                {payingInvoiceId === invoice.id ? "Processing..." : outstanding <= 0 ? "Paid" : "Pay now"}
+                              </Button>
+                            </Stack>
                           </TableCell>
                         </TableRow>
                       );
